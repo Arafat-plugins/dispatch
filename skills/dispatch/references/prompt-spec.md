@@ -1,0 +1,121 @@
+# The Spec — how a dispatch brief is assembled
+
+A brief is an engineering recipe, not a request. The sub-agent has no memory of the
+conversation, no view of your plan, and no reason to guess correctly. Everything it needs is
+in the brief or it does not exist.
+
+## Template
+
+```
+## Task
+<one sentence: the observable change you want>
+
+## Inputs
+Files you may edit:
+  - <exact/path/one>
+  - <exact/path/two>
+Current wrong behaviour:
+  <what happens today, concretely — a measurement, not an adjective>
+Target behaviour:
+  <what must be true when you are done, checkable>
+
+## Audience
+<what consumes this code and what contract it must keep>
+
+## Format
+<conventions of the file being edited: indent, naming, escaping, which layer owns what>
+
+## Out of scope — do NOT
+- do NOT touch <files/areas>
+- do NOT refactor <thing> as a side effect
+- do NOT survey the repository; read AGENTS.md, then only the files named above
+- do NOT commit, push, or change git state
+- do NOT add dependencies
+
+## Knowledge
+Read AGENTS.md at the repo root first. It is the map. Do not go exploring past it.
+<+ any specific reference file that matters for this task>
+
+## Done means
+- [ ] <checkable condition>
+- [ ] <checkable condition>
+- [ ] you report what you changed and why, file by file
+
+[ task list broken down into phases, each phase as a vertical slice, numbered ]
+```
+
+## The four rules
+
+**1. Inputs are paths, not descriptions.** "The product card styles" sends the agent
+searching. `assets/css/product-card.css` does not. If you cannot name the file, you have not
+finished step 2 of the cycle — run the grep, or dispatch a read-only scout to return paths.
+
+**2. Wrong behaviour is measured, not adjectived.** "The layout is broken on mobile" is
+unactionable. "Below 620px the card grid keeps 3 columns and overflows the viewport by ~180px"
+can be fixed and can be checked.
+
+**3. Out of scope is where briefs earn their keep.** An unconstrained agent refactors, renames,
+reformats, and adds a dependency. Every one of those is a diff you now have to review. Name the
+adjacent things it must leave alone — especially the ones it will be tempted by.
+
+**4. "Done means" is the acceptance test, written before the work.** You will judge the diff
+against this list in step 5. If you cannot write a checkable list, the task is not specified
+well enough to dispatch yet.
+
+## Worked example
+
+Vague ask: *"make this CSS perfect for all devices"*
+
+```
+## Task
+Make the product card grid lay out correctly from 320px to 1440px.
+
+## Inputs
+Files you may edit:
+  - assets/css/catalog-discovery.css
+Current wrong behaviour:
+  The grid track count is set from an inline --columns custom property, so below 620px it
+  stays at 3 columns and overflows the viewport by roughly 180px on a 375px screen.
+Target behaviour:
+  1 column below 620px, 2 up to 900px, 3 above. No horizontal overflow at any width in range.
+
+## Audience
+Storefront catalog page. Themes consume these class names as a public contract — class names
+and DOM structure must not change, only the styles.
+
+## Format
+Existing breakpoints in this file are 900px and 620px. Match them; do not invent new ones.
+Longhand properties, not shorthands, where the file already uses longhands.
+
+## Out of scope — do NOT
+- do NOT edit any other stylesheet
+- do NOT edit PHP, templates, or markup
+- do NOT rename or add class names
+- do NOT survey the repository; read AGENTS.md, then only the file named above
+- do NOT commit or push
+
+## Knowledge
+Read AGENTS.md at the repo root first. See its "Styles by surface" table.
+
+## Done means
+- [ ] no horizontal overflow at 320, 375, 620, 900, 1024, 1440
+- [ ] column counts are 1 / 2 / 3 at the breakpoints above
+- [ ] no class name or DOM change
+- [ ] you report each rule you changed and why
+
+[ task list broken down into phases, each phase as a vertical slice, numbered ]
+```
+
+Note what happened: the vague ask became a measurable one **before** dispatch. That
+conversion is the planner's job, and it is most of the value of this skill.
+
+## The footer
+
+The last line is always, verbatim:
+
+```
+[ task list broken down into phases, each phase as a vertical slice, numbered ]
+```
+
+It makes the agent commit to an ordered plan before editing, and each phase to a slice you can
+check on its own. Last position matters — it is the final instruction read.
