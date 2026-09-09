@@ -65,9 +65,23 @@ not half-migrate a legacy class into the namespace as a side effect of an unrela
 | Storefront sections | `storefront-sections.css`, `content-sections.css`, `storefront-shell.css` |
 | Admin Product Builder | `product-builder.css`, `single-product-builder.css` |
 
-**Breakpoints — use these, do not invent new ones:** catalog uses 900px (filters become a popup)
-and 620/640px (compact header). `single-product.css` treats ≤1023.98px as mobile+tablet, because
-its desktop layout starts at `min-width: 1024px`.
+**Breakpoints — use what the file already has; do not invent new ones.** Verified from the
+`@media` queries actually present (2026-09-09):
+
+| Stylesheet | Breakpoints in use |
+| --- | --- |
+| `catalog-discovery.css` | 560, 620, 640, 900 |
+| `products-shortcode.css` | 560, 760, 900 |
+| `archive-product.css` | 768 |
+| `single-product.css` | 640, 1023.98, 1024 |
+| `single-product-advanced.css` | 1024 |
+| `cart.css` | 720 |
+| `checkout.css` | 480, 768 |
+| `account.css` | 640, 900 |
+
+The set is **not** consistent across files — match the file you are editing, not a global rule.
+Two that carry meaning: catalog's 900px is where filters become a popup, and `single-product.css`
+treats ≤1023.98px as mobile+tablet because its desktop layout starts at `min-width: 1024px`.
 
 ## Conventions that will get a change rejected
 
