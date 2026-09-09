@@ -43,7 +43,7 @@ A table: check → query run → result → judgement.
 Say **"cannot determine"** where you cannot, and why. A guessed answer about production data is
 worse than no answer — the caller will act on it.
 
-Separate what you observed from what you infer. "`wp_sc_orders` has 412 rows with a
+Separate what you observed from what you infer. "`wp_mk_orders` has 412 rows with a
 `customer_id` absent from `wp_users`" is an observation. "Customer deletion is not cascading" is
 an inference — mark it as one.
 
