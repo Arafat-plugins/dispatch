@@ -24,7 +24,13 @@ set included 560 and differed per stylesheet. A "do not invent breakpoints" rule
 list is worse than no rule at all.
 
 **Date anything measured.** The known-failing baseline is a measurement with a shelf life. Say
-when it was taken, so a future reader knows whether to re-run it.
+when it was taken, at which commit, with which command — and say `not measured — <reason>`
+for any suite you could not run. Bootstrap runs the suites to fill this in; it never writes
+"none" from not looking.
+
+**The markers.** The first and last lines are `<!-- dispatch:map v1 -->` and
+`<!-- /dispatch:map -->`. They are how the skill tells its own map from an `AGENTS.md` some
+other tool wrote; on a foreign file bootstrap appends a marked region instead of overwriting.
 
 Note it is ~150 lines for a repo of that size. If your map approaches the cost of the territory,
 it has stopped being a map.

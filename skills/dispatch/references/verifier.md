@@ -11,14 +11,20 @@ Run after acceptance. Different question: acceptance asks *"does it do the job?"
 ```
 accepted work
   │
-  1. SCOUT   read-only: reads the diff, reports what actually changed
+  1. SCOUT   you, from the diff you already read at acceptance: what actually changed
   │          → you write a security spec targeted at THAT change
   │
-  2. CRITIC  dispatch-security-critic (haiku, read-only):
+  2. CRITIC  dispatch-security-critic (sonnet, read-only by instruction):
   │          evaluates the diff against your spec
   │
   → findings to the user; the user decides what to fix
 ```
+
+**The scout is not a sub-agent.** You read `git diff $BASE` in step 5; the scout stage is you
+reducing that to files, surfaces and risk classes. Dispatching another agent to re-read the
+same diff spends a run to learn what you already know. The only exception is an oversize diff
+you reviewed with `--stat` and per-file reads — then a read-only scout (routing.md) may
+summarise the files you skipped, output ≤ 20 lines.
 
 The scout stage exists because a generic security checklist produces generic findings. A diff
 that only touches CSS should not be asked about SQL injection — it wastes the review and buries
@@ -30,9 +36,11 @@ the critic knows what to be suspicious of.
 
 ## Stage 1 — scout
 
+From the acceptance read. If you need to look again:
+
 ```bash
-git diff --stat
-git diff
+git diff --stat "$BASE"
+git diff "$BASE" -- <path>          # per file; created files need the intent-to-add step from acceptance.md
 ```
 
 Reduce to: which files, which surfaces, and — the part that matters — **what kind of risk this
@@ -53,10 +61,23 @@ Naming what is out of scope is as valuable as naming what is in.
 
 ## Stage 2 — the critic brief
 
+Before dispatching, snapshot the tree so you can prove afterwards that the critic changed
+nothing:
+
+```bash
+git status --porcelain > /tmp/dispatch-before
+```
+
 ```
 ## Role
-You are a security critic. You evaluate; you do not edit. You have no write tools and you
-must not request them. Your output is findings, or the sentence "No findings."
+You are a security critic. You evaluate; you do not edit. Your tools are read-only by
+instruction, not by enforcement — you hold Bash, so do not run anything that writes: no
+redirection into files, no sed -i, no git commands that change state, no installs. Your
+output is findings, or the sentence "No findings."
+
+## Diff to evaluate
+git diff <BASE>   (<BASE> is the snapshot the caller gives you; created files are already
+intent-to-add, so they appear in the diff)
 
 ## The change
 <scout summary: files, surfaces, what it does>
@@ -77,12 +98,22 @@ Do NOT report on code the diff did not touch.
 
 If a concern is speculative, mark it speculative. Do not pad the list.
 If there is nothing, say "No findings." That is a valid and expected result.
+Report at most 40 lines, one phase per risk area listed above.
 
 ## Knowledge
 Read AGENTS.md at the repo root first, then only the changed files.
 
 [ task list broken down into phases, each phase as a vertical slice, numbered ]
 ```
+
+## After the critic returns
+
+```bash
+git status --porcelain | diff /tmp/dispatch-before -      # must print nothing
+```
+
+Output means the critic wrote something. That is the first finding you report, before its own
+— and grounds to check the installed agent file.
 
 ## Handling findings
 

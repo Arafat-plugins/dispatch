@@ -1,3 +1,4 @@
+<!-- dispatch:map v1 -->
 # AGENTS.md — repo map for sub-agents
 
 > **This is an anonymized example**, adapted from a real `AGENTS.md` that `/dispatch bootstrap`
@@ -46,6 +47,8 @@ half-migrate a legacy class into the namespace as a side effect of an unrelated 
 - **Schema:** `includes/class-database.php` — the plugin owns its own `wp_mk_*` tables rather
   than reusing WP core tables.
 - **Theme contract:** `docs/THEME-CONTRACT.md` — the stable shortcode/hook surface.
+- **Database:** MySQL via the site manager; connection in the site config (path below), never
+  in this file. Use the read-only user `mk_ro` for checks.
 
 `src/` is organised by commerce domain, not by layer: `Catalog`, `Checkout`, `Payments`,
 `Pricing`, `Tax`, `Shipping`, `Fulfillment`, `Inventory`, `Customer`, `Reviews`, `Email`,
@@ -119,8 +122,11 @@ treats ≤1023.98px as mobile+tablet because its desktop layout starts at `min-w
 
 ## Known-failing baseline
 
-168 smoke files; **11 fail on a clean checkout** (verified, with a date). These are **not** new
-breakage — do not investigate them unless your change touches them:
+Measured 2026-09-01 at `3f2a9c1` with the smoke command above (9 min; unit and integration
+suites: `not measured — integration needs the local DB, which was down`).
+
+168 smoke files; **11 fail on a clean checkout**. These are **not** new breakage — do not
+investigate them unless your change touches them:
 
 ```
 legacy_theme_asset_scope.php          mobile_order_payload_sanity.php
@@ -153,3 +159,4 @@ local DB is often down; that is expected, not a bug to chase.
 - `docs/` — design records and plans, not current-state truth. Read one only when the brief names
   it. `THEME-CONTRACT.md` and the edition-boundary doc are the two that constrain code.
 - `tests/Smoke/` in bulk — 168 files. Read only the one covering your surface.
+<!-- /dispatch:map -->
