@@ -39,7 +39,10 @@ Read AGENTS.md at the repo root first. It is the map. Do not go exploring past i
 ## Done means
 - [ ] <checkable condition>
 - [ ] <checkable condition>
-- [ ] you report what you changed and why, file by file
+- [ ] you report per phase: what changed and why, file by file, verified / not verified
+
+## Report
+At most 40 lines. The caller reads the diff itself; the report is a map to it, not a copy.
 
 [ task list broken down into phases, each phase as a vertical slice, numbered ]
 ```
@@ -61,6 +64,10 @@ adjacent things it must leave alone — especially the ones it will be tempted b
 **4. "Done means" is the acceptance test, written before the work.** You will judge the diff
 against this list in step 5. If you cannot write a checkable list, the task is not specified
 well enough to dispatch yet.
+
+**And one cap: the report is ≤ 40 lines.** Say it in every brief. A sub-agent left to itself
+returns the files it touched, quoted. You are going to read the diff anyway; a long report is
+the same content twice, in the context you are protecting.
 
 ## Worked example
 
@@ -101,7 +108,10 @@ Read AGENTS.md at the repo root first. See its "Styles by surface" table.
 - [ ] no horizontal overflow at 320, 375, 620, 900, 1024, 1440
 - [ ] column counts are 1 / 2 / 3 at the breakpoints above
 - [ ] no class name or DOM change
-- [ ] you report each rule you changed and why
+- [ ] you report each rule you changed and why, per phase, and how each width was verified
+
+## Report
+At most 40 lines. Say per width whether you rendered it or read the rules.
 
 [ task list broken down into phases, each phase as a vertical slice, numbered ]
 ```
@@ -119,3 +129,26 @@ The last line is always, verbatim:
 
 It makes the agent commit to an ordered plan before editing, and each phase to a slice you can
 check on its own. Last position matters — it is the final instruction read.
+
+**What the sub-agent does with it.** It is an instruction, not a template field. Before its
+first edit, the sub-agent writes a numbered phase list; it works through the phases in order;
+its report is organised by those phases, each ending `verified: <how>` or `not verified:
+<why>`. Acceptance checks for that shape (acceptance.md, "Then the phases").
+
+**Phases are the HOW, not the WHAT.** The brief decides what changes; the sub-agent never
+does. Phases are an ordering of the briefed work, inside its Inputs and Out-of-scope. A phase
+that would need a file the brief did not name is not a phase — it is a stop-and-report
+(failures.md, case 4).
+
+**A vertical slice** is a piece of the target behaviour that is true and checkable on its own
+when the phase ends: "phase 1: 1 column below 620px, verified at 320 and 375", not "phase 1:
+edit the grid rules". For a read-only brief — critic, db-tester, scout — a slice is one risk
+area or one check, taken end to end: evidence, then judgement.
+
+## Design and UI briefs
+
+Any brief that designs or changes UI carries responsive Target behaviour, stated per width —
+see **[responsive.md](responsive.md)** for the one-question-at-a-time flow that produces it and
+the default acceptance widths. "Done means" for such a brief always includes the widths
+checked, at minimum mobile/tablet/desktop or the project's own breakpoints — not just the width
+that prompted the task.

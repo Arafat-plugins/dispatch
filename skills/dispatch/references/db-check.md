@@ -5,16 +5,48 @@ a write requires the user to ask for it in that turn, in words.
 
 ## Before dispatching
 
-`AGENTS.md` should name the connection. If it does not, find it once and add it there — every
-future dispatch then gets it for free:
+`AGENTS.md` should name the engine and the config file holding the connection. If it does
+not, find the *file* once and add its path there — every future dispatch then gets it for
+free:
 
 ```bash
-grep -rniE "(DB_NAME|DATABASE_URL|DB_HOST|DB_USER)" \
-  --include="*.env*" --include="*.php" --include="*.json" --include="*.yml" . | head
+grep -rliE "(DB_NAME|DATABASE_URL|DB_HOST|DB_USER|PGHOST|MONGO_URI|SQLITE)" \
+  --include="*.env*" --include="*.php" --include="*.json" --include="*.yml" --include="*.yaml" \
+  --include="*.toml" --include="*.ini" . | head
 ```
+
+**`-l` is not optional.** Without it the matching lines — values included — print into your
+context and the transcript. Never drop `-l`, never `cat` a matched file, never `grep` for the
+password key without `-l`.
 
 **Never put credentials in the brief.** Name the config file the agent should read them from.
 A password pasted into a prompt is a password in a transcript.
+
+**Never put credentials on a command line either.** Every tool call is recorded, and process
+lists are readable. The brief tells the agent to pass them through files or the environment:
+
+| Engine | Pass credentials via | Not |
+| --- | --- | --- |
+| MySQL / MariaDB | `mysql --defaults-extra-file=<file>` (mode 600, `[client]` section) | `-p<password>` |
+| PostgreSQL | `PGPASSFILE=<file>` / `~/.pgpass`, or `PGPASSWORD` exported from the config file, not typed | `postgres://user:pass@…` in the command |
+| MongoDB | `mongosh "$MONGO_URI"` with the variable exported from the config file | the URI literal |
+| SQLite | none needed | — |
+
+## Real read-only guards, not just instructions
+
+The agent holds `Bash`; "read-only" is a rule it follows, not a wall. Add the wall where the
+engine offers one, and say in the brief which to use:
+
+| Engine | Guard |
+| --- | --- |
+| MySQL / MariaDB | a read-only DB user if one exists; else `mysql --safe-updates` and `SET SESSION TRANSACTION READ ONLY;` as the first statement |
+| PostgreSQL | a read-only role if one exists; else `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;` or wrap each check in `START TRANSACTION READ ONLY; … ROLLBACK;` |
+| SQLite | `sqlite3 -readonly <file>` — always; there is no reason to open it any other way |
+| MongoDB | a read-only user if one exists; only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` — no `insert*`, `update*`, `delete*`, `drop*`, `createIndex` |
+
+Ask the user for a read-only user once, and record it in `AGENTS.md` as the connection to
+use for checks. Then confirm after the run: `git status --porcelain` unchanged (the agent
+touched no files), and no DDL/DML in the queries it reports.
 
 ## The brief
 
@@ -23,18 +55,21 @@ A password pasted into a prompt is a password in a transcript.
 <the question being answered — not "check the database">
 
 ## Connection
-Read credentials from <config file>. Do not print them in your output.
+Engine: <mysql | postgres | sqlite | mongo>.
+Read credentials from <config file>. Pass them via <option file / env var per the table>.
+Do not print them in your output or in any command you quote.
 
 ## Posture
-READ ONLY. You may run SELECT, SHOW, DESCRIBE, EXPLAIN.
-Do NOT run INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, or CREATE.
+READ ONLY. Open the session with: <the guard from the table>.
+You may run SELECT, SHOW, DESCRIBE, EXPLAIN (or their equivalents below).
+Do NOT run INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, GRANT, or REPLACE.
 Do NOT modify schema or data under any circumstances.
 
 ## Checks
 <the specific questions>
 
 ## Report
-A table of check → result → judgement. Include the query you ran for each.
+A table of check → query run → result → judgement. At most 40 lines.
 Say "cannot determine" where you cannot; do not guess.
 
 ## Out of scope
@@ -44,6 +79,24 @@ Do NOT print credentials, tokens, or personal data — mask them.
 
 [ task list broken down into phases, each phase as a vertical slice, numbered ]
 ```
+
+For a read-only brief a **vertical slice** is one check, taken end to end: the query, its
+result, the judgement. Phase 1 = check 1, and so on. The report follows the phases.
+
+## Per-engine equivalents
+
+The brief says "SELECT, SHOW, DESCRIBE, EXPLAIN"; the agent translates:
+
+| Need | MySQL / MariaDB | PostgreSQL (`psql`) | SQLite (`sqlite3`) | MongoDB (`mongosh`) |
+| --- | --- | --- | --- | --- |
+| List tables | `SHOW TABLES` | `\dt` or `information_schema.tables` | `.tables` | `db.getCollectionNames()` |
+| Columns / types | `DESCRIBE t` | `\d t` or `information_schema.columns` | `.schema t`, `PRAGMA table_info(t)` | `db.t.findOne()` + `db.getCollectionInfos({name:"t"})` (validators) |
+| Indexes | `SHOW INDEX FROM t` | `\di t*` or `pg_indexes` | `PRAGMA index_list(t)` | `db.t.getIndexes()` |
+| Foreign keys | `information_schema.KEY_COLUMN_USAGE` | `\d t` (footer) | `PRAGMA foreign_key_list(t)` | none — check by query |
+| Query plan | `EXPLAIN <q>` | `EXPLAIN (ANALYZE false) <q>` | `EXPLAIN QUERY PLAN <q>` | `db.t.find(q).explain("queryPlanner")` |
+| Migration drift | compare to migration files | compare to migration files | `.schema` vs migration files | validators vs schema in code |
+
+Never `EXPLAIN ANALYZE` a write, on any engine — it executes it.
 
 ## Checks worth asking for
 
