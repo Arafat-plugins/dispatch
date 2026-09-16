@@ -61,12 +61,12 @@ their own worktrees.
 
 Generic agent templates in `.claude/agents/`, skipped if a file of that name already exists:
 
-| Agent | Model | Role |
-| --- | --- | --- |
-| `dispatch-implementer` | opus | Server logic, APIs, data access — core-level implementation |
-| `dispatch-frontend` | opus | CSS, layout, responsive — design work |
-| `dispatch-db-tester` | sonnet | Database inspection — read-only by instruction, plus engine-level guards |
-| `dispatch-security-critic` | sonnet (haiku for trivial diffs) | Critic only — never edits |
+| Agent | Model | Effort | Role |
+| --- | --- | --- | --- |
+| `dispatch-implementer` | opus | medium | Server logic, APIs, data access — core-level implementation |
+| `dispatch-frontend` | opus | medium | CSS, layout, responsive — design work |
+| `dispatch-db-tester` | sonnet | medium | Database inspection — read-only by instruction, plus engine-level guards |
+| `dispatch-security-critic` | sonnet (haiku for trivial diffs) | medium | Critic only — never edits |
 
 The main session overrides the model per dispatch, on the Agent tool call — `sonnet` for light
 work even on the two `opus`-default agents (a copy fix, a renamed field), `opus` for anything
@@ -122,6 +122,9 @@ diffs are read `--stat` first, then per file — an oversize diff is itself a fi
 **Model by task weight.** The main session sets the model explicitly on every dispatch —
 `sonnet` for light work, `opus` for design or core-level implementation — and says why
 (routing.md).
+
+**Effort is medium.** Every sub-agent template sets `effort: medium` in its frontmatter — the
+Agent tool cannot set effort per call. Only the user changes it (routing.md).
 
 **At most 2 sub-agents at once.** Every kind counts toward the cap. A plan that needs more asks
 the user first, with the job, the reason, and the cost (routing.md).

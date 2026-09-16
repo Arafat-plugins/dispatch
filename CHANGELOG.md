@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0 — 2026-09-16
+
+**Sub-agent effort is medium**
+- All four agent templates carry `effort: medium` in their frontmatter. Model sets how capable
+  a sub-agent is; effort sets how long it thinks — a briefed job does not need more.
+- The Agent tool has no per-call effort, so the frontmatter is the only place it is set.
+  routing.md gains an *Effort* section: repo-owned agents without an `effort:` line inherit the
+  session (suggest adding it), the general-purpose fallback inherits the session (noted in the
+  plan), and only the user raises or lowers it — never the main session to rescue a failing
+  brief (SKILL.md, routing.md, bootstrap.md, README).
+- `scripts/validate.sh`: every agent template has `effort: medium`.
+- `evals/`: scenario for effort staying medium.
+
 ## 1.3.0 — 2026-09-15
 
 One gap: a new heavy project gets built from guesses instead of from the user's own answers. No

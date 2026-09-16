@@ -174,6 +174,10 @@ mkdir -p .claude/agents
 cp "$SKILL_DIR"/agents/<template>.md .claude/agents/     # per template you decided to install
 ```
 
+**Effort.** Every template carries `effort: medium`. Keep that line in the installed copy; for a
+repo's own agents that lack an `effort:` line, suggest adding `effort: medium` (routing.md,
+*Effort*) — do not edit them without the user's yes.
+
 **Never overwrite an existing agent file.** If a template's role is covered but the existing
 agent is weak, say so to the user and let them decide — do not silently replace their work.
 
@@ -209,7 +213,7 @@ If `CLAUDE.md` does not exist, do not create one. `AGENTS.md` is enough.
   "commit": "<short sha of HEAD at bootstrap>",
   "agents_map": "AGENTS.md",
   "baseline_measured": "<ISO date, or null>",
-  "version": "1.3.0"
+  "version": "1.4.0"
 }
 ```
 

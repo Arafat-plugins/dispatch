@@ -42,7 +42,9 @@ any of the four), do not wait and do not skip the dispatch:
    `$SKILL_DIR/agents/<name>.md` (bootstrap.md, Step 0).
 3. State the tool restriction in words inside the brief ("you have no browser; you are
    read-only; do not write files") — a general-purpose agent has every tool.
-4. Tell the user a restart makes the named agents available.
+4. The fallback inherits the session's effort — it cannot be set to `medium` per call. Note
+   it in the plan (see [Effort](#effort)).
+5. Tell the user a restart makes the named agents available.
 
 ## Rules
 
@@ -106,3 +108,20 @@ from `sonnet` for a trivial diff (copy, styles, a one-file change with no input 
 it per repo in the installed copy, not in the template.
 
 Nothing switches mid-task. The main session stays whatever the user is running.
+
+## Effort
+
+**Every sub-agent runs at `effort: medium`.** Model picks *how capable*; effort picks *how long
+it thinks*. Medium is enough for a briefed job — the brief already did the hard thinking — and
+keeps each dispatch fast and cheap, whether the model is `sonnet` or `opus`.
+
+- **Where it is set:** the `effort:` line in each agent file's frontmatter. All four templates
+  ship with `effort: medium`. The Agent tool has **no per-call effort parameter**, so there is
+  nothing to set on the dispatch itself — only check the installed file still says `medium`.
+- **Repo's own agents:** if a purpose-built agent has no `effort:` line it inherits the
+  session's effort. Tell the user once, and suggest adding `effort: medium` to it.
+- **Fallback sub-agent** (a general-purpose agent carrying a template body — see above): it
+  inherits the session's effort and nothing in the call can change that. Say so in the plan.
+- **Changing it** — `low`, `high`, `xhigh`, `max` — is the user's decision, per repo, in the
+  installed copies. Never raise it yourself to rescue a failing brief; a failing brief is
+  rewritten (failures.md), not thought about harder.
