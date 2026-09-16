@@ -114,4 +114,10 @@ else
   bad "skills/dispatch/references/new-project.md is missing"
 fi
 
+# 12. every agent template runs at effort: medium
+for f in "$SKILL"/agents/*.md; do
+  grep -qE '^effort: *medium$' "$f" || bad "$(basename "$f" .md): expected 'effort: medium' in frontmatter"
+done
+ok "agent templates set effort: medium"
+
 [ $fail -eq 0 ] && { echo "PASS"; exit 0; } || { echo "FAILED"; exit 1; }

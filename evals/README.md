@@ -17,3 +17,4 @@ file has the three sections.
 | `third-parallel-agent-asks-user.md` | a third concurrent sub-agent needs the user's yes first |
 | `design-asks-responsive-one-question.md` | responsive scope is clarified one question at a time, not batched |
 | `new-project-intake-one-question.md` | a heavy new project is scoped one question at a time before anything is built |
+| `effort-stays-medium.md` | sub-agents run at `effort: medium`; the main session never raises it on its own |

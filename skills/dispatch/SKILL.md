@@ -4,7 +4,7 @@ description: Delegate implementation work to sub-agents while the main session k
 license: MIT
 compatibility: Any agent runtime that can spawn sub-agents and run shell commands. Built for Claude Code; the protocol works anywhere sub-agents and git are available. Git is required for the acceptance and verify steps.
 metadata:
-  version: 1.3.0
+  version: 1.4.0
   author: Arafat-plugins
 ---
 
@@ -151,6 +151,10 @@ or core-level implementation (architecture, new subsystems, business logic, cros
 changes). Unsure on a design/core task → choose `opus` and say why. State the choice and a
 one-line reason in your plan. Table: **[references/routing.md](references/routing.md#model-selection)**.
 
+**Effort is `medium` for every sub-agent.** It is set once, as `effort: medium` in each agent
+file's frontmatter — the Agent tool has no per-call effort. Never raise it on your own; only the
+user changes it. Details: **[references/routing.md](references/routing.md#effort)**.
+
 **Designing or changing UI?** Responsive behaviour is always in scope and always in "Done
 means" — at minimum mobile ~375px, tablet ~768px, desktop ~1280px+, or the project's own
 breakpoints from `AGENTS.md`. Before writing the brief, ask the user how it should look on
@@ -215,6 +219,7 @@ db-tester) a slice is one check or risk area, taken end to end: evidence, then j
 
 - Never dispatch a job whose brief you could not check the result of.
 - Never run more than 2 sub-agents at once, any kind. A plan needing more asks the user first.
+- Every sub-agent runs at `effort: medium` unless the user says otherwise.
 - Never let a sub-agent both decide *what* to do and *whether it worked*. Those are your calls.
 - The security critic **only criticises** — it never edits. Enforced by instruction, checked by
   you: `git status --porcelain` after it returns must match before.
