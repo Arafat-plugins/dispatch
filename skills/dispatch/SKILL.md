@@ -4,7 +4,7 @@ description: Delegate implementation work to sub-agents while the main session k
 license: MIT
 compatibility: Any agent runtime that can spawn sub-agents and run shell commands. Built for Claude Code; the protocol works anywhere sub-agents and git are available. Git is required for the acceptance and verify steps.
 metadata:
-  version: 1.4.0
+  version: 1.5.0
   author: Arafat-plugins
 ---
 
@@ -41,8 +41,10 @@ Pick by what follows the command. With no argument, run `status`.
 | Invocation | Mode |
 | --- | --- |
 | `/dispatch bootstrap` | Generate `AGENTS.md` for this repo + install agent templates. **Run this first.** |
+| `/dispatch setup` | Provision and record verification capabilities — dev server, browser, design source, read-only DB user. Bootstrap runs it — **[references/setup.md](references/setup.md)** |
 | `/dispatch new <idea>` | Heavy new project: one-question-at-a-time intake, then scaffold + bootstrap — **[references/new-project.md](references/new-project.md)** |
 | `/dispatch <task>` | The full cycle: plan → locate → brief → work → accept |
+| `/dispatch deps <add\|remove\|update> <package>` | A dependency change as its own dispatch: manifest + lockfile only, then a narrow verify — **[references/dependencies.md](references/dependencies.md)** |
 | `/dispatch verify` | Security critic chain over the current diff |
 | `/dispatch db <check>` | Database inspection via the db-tester agent — **[references/db-check.md](references/db-check.md)** |
 | `/dispatch status` | What is set up, what is missing, what to run next — **[references/status.md](references/status.md)** |
@@ -124,7 +126,7 @@ Resolve exact paths. Paths only, no contents:
 grep -rl "<symbol or selector>" --include="*.<ext>" . | head
 ```
 
-If `AGENTS.md` already names the owning file for this surface, use it and skip the grep.
+If the Surfaces table in `AGENTS.md` names the owning files, skip the grep entirely.
 If you cannot narrow to a small set of files, dispatch a **read-only scout** to find them and
 return paths — not a worker who both searches and edits.
 
@@ -157,15 +159,17 @@ user changes it. Details: **[references/routing.md](references/routing.md#effort
 
 **Designing or changing UI?** Responsive behaviour is always in scope and always in "Done
 means" — at minimum mobile ~375px, tablet ~768px, desktop ~1280px+, or the project's own
-breakpoints from `AGENTS.md`. Before writing the brief, ask the user how it should look on
-smaller screens — **one question per message**, wait, then the next; never batch. Full
-procedure: **[references/responsive.md](references/responsive.md)**.
+breakpoints from `DESIGN.md` / `AGENTS.md`; **Format** cites `DESIGN.md`'s components by name.
+Before writing the brief, ask the user how it should look on smaller screens — **one question
+per message**, wait, then the next; never batch. Full procedure:
+**[references/responsive.md](references/responsive.md)**.
 
 ### 4. WORK
 The sub-agent implements and reports back. You wait. You do not read along.
 
 A sub-agent that errors, times out, stops to ask a question, or reports an out-of-scope need is
-not a rejection. Handle each per **[references/failures.md](references/failures.md)**.
+not a rejection. Handle each per **[references/failures.md](references/failures.md)** — a
+needed dependency becomes a `deps` dispatch first.
 
 ### 5. ACCEPT
 Yours alone. Read **[references/acceptance.md](references/acceptance.md)**.

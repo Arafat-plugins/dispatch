@@ -32,5 +32,10 @@ for any suite you could not run. Bootstrap runs the suites to fill this in; it n
 `<!-- /dispatch:map -->`. They are how the skill tells its own map from an `AGENTS.md` some
 other tool wrote; on a foreign file bootstrap appends a marked region instead of overwriting.
 
-Note it is ~150 lines for a repo of that size. If your map approaches the cost of the territory,
+**Surfaces and capabilities.** The *Surfaces* table lets a brief name the owning files without
+a grep, and is generated from the code (shortcode classes, `register_rest_route`), grouped where
+a surface has many rows. *Verification capabilities* is what `/dispatch setup` recorded: how
+widths get rendered, where design rules live, and which read-only database user checks use.
+
+Note it is ~190 lines for a repo of that size. If your map approaches the cost of the territory,
 it has stopped being a map.

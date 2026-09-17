@@ -9,6 +9,7 @@ what keeps the main session's own context small.
 1. Survey the repo — **this one time**, thoroughly.
 2. Write (or append to) `AGENTS.md` at the repo root, inside dispatch markers.
    2b. **Measure** the known-failing baseline by running the test and lint commands.
+   2c. **Capabilities** — provision and record how work gets verified here ([setup.md](setup.md)).
 3. Install the agent templates into `.claude/agents/`.
 4. Point `CLAUDE.md` at `AGENTS.md` if `CLAUDE.md` exists.
 5. Record state in `.claude/.dispatch-state.json`.
@@ -104,6 +105,11 @@ Read this before touching anything. It replaces surveying the codebase.
 - Config:                  <path>
 - Database:                <engine, and the config file holding the connection — never the values>
 
+### Surfaces
+| Surface (route / page) | Entry (controller / handler) | View / component | Styles |
+| --- | --- | --- | --- |
+<one row per surface, generated — see "The Surfaces table" below; framework projects only>
+
 ## Conventions that will get a change rejected
 <indent, naming, escaping, error handling, i18n, imports — the specific ones, not generic advice>
 
@@ -123,14 +129,53 @@ Read this before touching anything. It replaces surveying the codebase.
 Measured <ISO date> at <short sha> with `<command>`:
 <the failing tests, or "none failing", or "not measured — <reason>". Never "none" unmeasured.>
 
+## Verification capabilities
+<written by Step 2c — dev server, rendering, design source, database read-only user; setup.md, step f>
+
 ## What not to bother reading
 <large generated dirs, vendored code, fixtures, build output — with a one-line reason each>
 <!-- /dispatch:map -->
 ```
 
-The last two sections are the ones people skip and the ones that pay. "What not to bother
-reading" is a direct instruction not to spend context, and the known-failing baseline stops
-every future agent from re-investigating the same pre-existing failures.
+*Known-failing baseline* and *What not to bother reading* are the sections people skip and the
+ones that pay. "What not to bother reading" is a direct instruction not to spend context, and
+the known-failing baseline stops every future agent from re-investigating the same
+pre-existing failures.
+
+### The Surfaces table
+
+On a framework project, "Where things are" carries a **Surfaces** table, so a brief can name
+the owning files without a grep — the cycle's LOCATE step skips the grep when a row names
+them. **Generate it from the framework's own output; never write it from memory.** Paths and
+names only — no file bodies:
+
+- **Laravel** — routes to `controller@method`; the Inertia page from the controller's
+  `Inertia::render('…')`; Blade views by name (`view('…')` → `resources/views/….blade.php`):
+  ```bash
+  php artisan route:list --json --except-vendor | php -r 'foreach (json_decode(stream_get_contents(STDIN), true) as $r) echo "{$r["method"]} /{$r["uri"]} → {$r["action"]}\n";' | head -80
+  grep -rnoE "Inertia::render\(['\"][^'\"]+" app/Http/Controllers | head -80
+  grep -rnoE "view\(['\"][^'\"]+" app/Http/Controllers | head -80
+  ```
+- **Next.js / Nuxt / SvelteKit** — the routes folder tree, one row per route file; styles are
+  the co-located `*.module.css` / `<style>` block, or the global sheet:
+  ```bash
+  find app src/app -type f \( -name 'page.*' -o -name 'route.*' \) 2>/dev/null | sort                     # Next, app router
+  find pages src/pages -type f \( -name '*.vue' -o -name '*.[jt]s' -o -name '*.[jt]sx' \) 2>/dev/null \
+    | grep -vE '/_(app|document)\.' | sort                                                                     # Next pages router, Nuxt
+  find src/routes -type f \( -name '+page.svelte' -o -name '+server.*' \) 2>/dev/null | sort               # SvelteKit
+  ```
+- **WordPress** — the theme's template-hierarchy files, plus registered REST routes:
+  ```bash
+  ls <theme>/{index,front-page,home,single*,page*,archive*,category*,taxonomy*,search,404}.php <theme>/templates/*.html 2>/dev/null
+  grep -rnoE "register_rest_route\(\s*['\"][^'\"]+['\"]\s*,\s*['\"][^'\"]+" --include='*.php' --exclude-dir=vendor --exclude-dir=node_modules . | head -60
+  ```
+- **Plain PHP / static** — one row per entry file in the web root (`ls public/*.php public/*.html`,
+  or the root itself).
+
+**Cap it at ~60 rows.** Beyond that, group by prefix — one row `/admin/* (42 routes)` whose
+cells say `see app/Http/Controllers/Admin/` — so the map stays a map. The Styles column names
+the stylesheet that owns the surface (or "utility classes, in the view" on Tailwind); unknown →
+leave it blank rather than guess. No framework and no routes → omit the table.
 
 ## Step 2b — measure the baseline
 
@@ -155,6 +200,18 @@ Record, in that section:
   retry.
 
 Large repo: do this inside the survey sub-agent, and have it return the section text only.
+
+## Step 2c — capabilities
+
+Run **[setup.md](setup.md)**, steps a–f, now. The map says where things are; this step makes
+sure the next acceptance can *check* them — a dev server to load, a browser to render at a
+width, a design source, a read-only database user — and writes *Verification capabilities*
+into the region above.
+
+Bootstrap is a request for setup: propose each missing install, and run it on a yes. Anything
+declined or impossible is recorded as `none` and said to the user, never skipped quietly. The
+one part that waits: step b's `tools:` edit applies to the frontend agent Step 3 installs, right
+after the copy.
 
 ## Step 3 — install agents
 
@@ -181,12 +238,11 @@ repo's own agents that lack an `effort:` line, suggest adding `effort: medium` (
 **Never overwrite an existing agent file.** If a template's role is covered but the existing
 agent is weak, say so to the user and let them decide — do not silently replace their work.
 
-**Browser tools for the frontend agent.** The template's `tools:` line has no browser. If a
-browser MCP is configured (`claude mcp list` names playwright, puppeteer, or chrome), append
-its tool names to the `tools:` line of the *installed copy* — for example
-`mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_evaluate` —
-or delete the `tools:` line so the agent inherits every tool. Say in `AGENTS.md` which it is,
-so acceptance knows whether "verified at 375px" was rendered or read.
+**Browser tools for the frontend agent.** The template's `tools:` line has no browser. If Step
+2c found a browser MCP, append its tool names — exactly as the session lists them — to the
+`tools:` line of the *installed copy*, or delete the line so the agent inherits every tool
+(setup.md, step b). *Verification capabilities* records which, so acceptance knows whether
+"verified at 375px" was rendered or read.
 
 **Hot-loading.** Claude Code reads `.claude/agents/` at session start. Files installed now may
 not be selectable until the session restarts or `/agents` reloads them. Tell the user. Until
@@ -213,12 +269,13 @@ If `CLAUDE.md` does not exist, do not create one. `AGENTS.md` is enough.
   "commit": "<short sha of HEAD at bootstrap>",
   "agents_map": "AGENTS.md",
   "baseline_measured": "<ISO date, or null>",
-  "version": "1.4.0"
+  "capabilities_measured": "<ISO date, or null>",
+  "version": "1.5.0"
 }
 ```
 
-at `.claude/.dispatch-state.json`. `status` reads `commit` to measure drift and
-`baseline_measured` to age the baseline.
+at `.claude/.dispatch-state.json`. `status` reads `commit` to measure drift,
+`baseline_measured` to age the baseline, and `capabilities_measured` to know setup ran.
 
 ## Step 6 — commit, before the first dispatch
 
@@ -226,7 +283,9 @@ Bootstrap leaves the tree dirty. Acceptance diffs against a baseline; if bootstr
 still uncommitted they land in every dispatch's diff. So, before the first dispatch, one of:
 
 ```bash
-git add AGENTS.md CLAUDE.md .claude/agents/dispatch-*.md .claude/.dispatch-state.json
+git add AGENTS.md CLAUDE.md .claude/agents/dispatch-*.md .claude/.dispatch-state.json \
+        .claude/dispatch/dispatch-measure.mjs
+git add <DESIGN.md, .gitignore, manifest + lockfile — whichever Step 2c changed>
 git commit -m "chore: dispatch bootstrap"
 ```
 
@@ -234,8 +293,12 @@ or the snapshot baseline from acceptance.md. Bootstrap does not commit on its ow
 command and let the user run it.
 
 **What to commit:** `AGENTS.md`, `.claude/agents/dispatch-*.md`, the `CLAUDE.md` patch — yes,
-recommended; they are the map every teammate's session needs. `.claude/.dispatch-state.json`
-— commit it too: it is small, deterministic, and `status` on a fresh clone depends on it. If
+recommended; they are the map every teammate's session needs. So are
+`.claude/dispatch/dispatch-measure.mjs`, `DESIGN.md`, and any dev-dependency Step 2c added
+(manifest + lockfile) — every teammate's acceptance runs on them. Never
+`.claude/dispatch/browsers/`: it is a downloaded binary, gitignored by setup.
+`.claude/.dispatch-state.json` — commit it too: it is small, deterministic, and `status` on a
+fresh clone depends on it. If
 the team prefers it local, add it to `.gitignore`; `status` then reports the state file as
 absent and falls back to the marker.
 

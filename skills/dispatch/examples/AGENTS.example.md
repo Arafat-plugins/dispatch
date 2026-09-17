@@ -50,6 +50,21 @@ half-migrate a legacy class into the namespace as a side effect of an unrelated 
 - **Database:** MySQL via the site manager; connection in the site config (path below), never
   in this file. Use the read-only user `mk_ro` for checks.
 
+### Surfaces
+
+Generated from the shortcode classes, `register_rest_route` calls and the template loader —
+not from the docs. Storefront rows only; admin screens are grouped.
+
+| Surface (route / page) | Entry (controller / handler) | View / component | Styles |
+| --- | --- | --- | --- |
+| Catalog `[mk_products]` | `includes/class-shortcode/class-shortcode-products.php` | `templates/archive-product.php` | `catalog-discovery.css`, `products-shortcode.css` |
+| Single product | `includes/class-template-loader.php` | `templates/single-product.php` | `single-product.css`, `single-product-advanced.css` |
+| Cart `[mk_cart]` | `includes/class-shortcode/class-shortcode-cart.php` | `templates/cart/cart.php` | `cart.css` |
+| Checkout `[mk_checkout]` | `includes/class-shortcode/class-shortcode-checkout.php` | `templates/checkout/form-checkout.php` | `checkout.css` |
+| Account `[mk_account]` | `includes/class-shortcode/class-shortcode-account.php` | `templates/account/dashboard.php` | `account.css` |
+| REST `mk/v1/products`, `mk/v1/orders`, … (14 routes) | see `includes/class-rest-api/` | — | — |
+| Admin screens (23) | see `src/Admin/` | see `templates/admin/` | `admin-*.css` |
+
 `src/` is organised by commerce domain, not by layer: `Catalog`, `Checkout`, `Payments`,
 `Pricing`, `Tax`, `Shipping`, `Fulfillment`, `Inventory`, `Customer`, `Reviews`, `Email`,
 `Webhooks`, `Queue`, `Audit`, `Logging`, `Privacy`, `Money`, `Http`.
@@ -141,6 +156,19 @@ Two of these need sibling repos checked out; CI runs them in a separate cross-re
 
 > This section pays for the whole file. Without it, every agent re-investigates eleven tests that
 > were already red, and reports them as regressions it caused.
+
+## Verification capabilities
+
+Measured 2026-09-17 by `/dispatch setup`:
+
+- Dev server: started from the site manager app (no CLI command) → `http://marketkit.local`
+- Rendering: local Playwright, run `.claude/dispatch/dispatch-measure.mjs` — frontend agent tools: `Bash, Read, Edit, Write, Grep, Glob` (template default, no browser MCP)
+- Design source: DESIGN.md (tokens from `assets/css/variables.css`; breakpoints as in the table above)
+- Database: mysql, read-only user: `mk_ro` (`DB_RO_USER` / `DB_RO_PASSWORD` in the site config)
+- Lint / test / build: see Commands
+
+> Playwright is a dev dependency with chromium in `.claude/dispatch/browsers/` (gitignored). The
+> site manager's DB is often down; the db-tester then reports "cannot determine", not a guess.
 
 ## Local environment
 

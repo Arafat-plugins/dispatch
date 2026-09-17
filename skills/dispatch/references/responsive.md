@@ -11,8 +11,9 @@ use `AskUserQuestion` with **a single question per call**, 2-4 concrete options.
 answer, then ask the next. **Never batch questions into one message** — a user answers the part
 they understand and skims past the rest.
 
-Skip a question that `AGENTS.md` already answers (an existing breakpoint table, a stated nav
-pattern) or that the user already stated unprompted.
+Skip a question that `AGENTS.md` or `DESIGN.md` already answers (an existing breakpoint table,
+a stated nav pattern, a component whose responsive behaviour `DESIGN.md` → Components defines)
+or that the user already stated unprompted.
 
 Typical order — stop as soon as you have enough to write measurable targets; most tasks need
 2-3 questions, not all 5:
@@ -45,19 +46,26 @@ is what acceptance can check against.
 
 ## Acceptance widths
 
-Unless the project's own `AGENTS.md` states its breakpoints, check at minimum:
+Unless the project's own `DESIGN.md` or `AGENTS.md` states its breakpoints, check at minimum:
 
 - **mobile** ~375px
 - **tablet** ~768px
 - **desktop** ~1280px+
 
-Use the project's breakpoints instead of these defaults whenever `AGENTS.md` names them.
+Use the project's breakpoints instead of these defaults whenever `DESIGN.md` or `AGENTS.md`
+names them.
 
-**The main session checks these itself at acceptance** — reuse the Playwright/overflow snippet
-in [acceptance.md](acceptance.md#verifying-frontend-work-yourself), against every width the
-brief named. No renderer available → report **Not verified** for each width, per width; that is
-a legitimate acceptance line, not something to smooth over.
+**The main session checks these itself at acceptance** — with the repo's measure script,
+`node .claude/dispatch/dispatch-measure.mjs <url> <width>...`, or the MCP browser that
+`AGENTS.md` → *Verification capabilities* records, against every width the brief named
+([acceptance.md](acceptance.md#verifying-frontend-work-yourself)). No renderer available →
+report **Not verified** for each width, per width; that is a legitimate acceptance line, not
+something to smooth over.
+
+Write "Done means" widths so the script can check them as given: `no overflow at 320, 375, 768,
+1280` and `.grid grid-template-columns has 1 value at 375, 3 at 1280` — a selector and a
+computed property, not "looks right".
 
 The frontend template (`dispatch-frontend.md`) verifies **every** width in "Done means", not
-only the one reported broken, and reports per width: `rendered with <tool>` or `read, not
-rendered`.
+only the one reported broken, with the same script, and reports per width: `rendered with
+<tool>` or `read, not rendered`.

@@ -12,6 +12,23 @@ The brief ends with `[ task list broken down into phases, each phase as a vertic
 For you a slice is one check, end to end: query, result, judgement. Phase 1 is check 1.
 List the phases first, then run them in order, then report by them.
 
+## Start here, every time
+
+Read `AGENTS.md` at the repo root — *Verification capabilities* names the read-only user and
+the env key holding it; the brief's **Connection** repeats them. Then:
+
+**Refuse to proceed when the only credential you can find is the application's read-write
+user.** Do not connect with it — not to check its grants, not "just for a SELECT". A
+credential `AGENTS.md` does not name as read-only counts as read-write. Stop and report:
+
+```
+Refused: no read-only credential for <engine>. Found only <env key name — never the value>.
+Run the read-only-user SQL for <engine> (setup.md, step e — `/dispatch setup` prints it),
+store it under <env key>, record it in AGENTS.md, then re-dispatch.
+```
+
+SQLite is the one exception: `sqlite3 -readonly` is its guard, and there is no user.
+
 ## Absolute constraints
 
 Read-only is an instruction, not a wall — you hold `Bash`. So build the wall yourself, first
@@ -22,9 +39,17 @@ thing, per engine (the brief says which):
 | MySQL / MariaDB | `mysql --defaults-extra-file=<file> --safe-updates`, then `SET SESSION TRANSACTION READ ONLY;` |
 | PostgreSQL | `psql` with `PGPASSFILE`, then `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;` |
 | SQLite | `sqlite3 -readonly <file>` — never without the flag |
-| MongoDB | `mongosh "$MONGO_URI"`; only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` |
+| MongoDB | `mongosh "$MONGO_URI_RO"` (the read-only URI the brief names); only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` |
 
-Prefer a read-only DB user whenever `AGENTS.md` or the brief names one.
+Connect only as the read-only user `AGENTS.md` and the brief name. Right after opening, confirm
+it really is read-only — any write privilege in the result means stop and report, before any
+check:
+
+| Engine | Confirm with |
+| --- | --- |
+| MySQL / MariaDB | `SHOW GRANTS FOR CURRENT_USER();` — nothing beyond `SELECT`, `SHOW VIEW`, `USAGE` |
+| PostgreSQL | `SELECT rolsuper FROM pg_roles WHERE rolname = current_user;` and `SELECT DISTINCT privilege_type FROM information_schema.table_privileges WHERE grantee = current_user;` — not superuser, `SELECT` only |
+| MongoDB | `db.runCommand({ connectionStatus: 1 }).authInfo.authenticatedUserRoles` — `read` / `readAnyDatabase` only |
 
 You may run: `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`, and read-only client commands — or their
 equivalents: `\d`, `\dt`, `information_schema` on Postgres; `.schema`, `.tables`, `PRAGMA
@@ -51,9 +76,8 @@ try defaults.
 
 ## Working
 
-Read `AGENTS.md` first for the connection and schema conventions. Then answer **only the checks
-in the brief**. Do not survey the full schema — on a large database that is both slow and
-useless to the caller.
+`AGENTS.md` also holds the schema conventions. Answer **only the checks in the brief**. Do not
+survey the full schema — on a large database that is both slow and useless to the caller.
 
 Bound every query. `LIMIT` on anything that could return many rows; counts and aggregates in
 preference to row dumps. Report at most 5 sample rows, and mask anything personal in them.

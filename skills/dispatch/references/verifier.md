@@ -57,7 +57,8 @@ change can carry**. Map from what you see:
 | Dependencies or lockfiles | Provenance, known advisories, version pinning |
 | Only styles / markup / copy | Content injection only — **say the rest is out of scope** |
 
-Naming what is out of scope is as valuable as naming what is in.
+Naming what is out of scope is as valuable as naming what is in. A deps dispatch
+([dependencies.md](dependencies.md)) is the *Dependencies or lockfiles* row and nothing else.
 
 ## Stage 2 — the critic brief
 

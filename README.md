@@ -35,9 +35,11 @@ at all, in `references/when-not-to-dispatch.md`.)
 ## Usage
 
 ```
-/dispatch bootstrap          # once per repo — writes AGENTS.md, installs agent templates
+/dispatch bootstrap          # once per repo — writes AGENTS.md, installs agent templates, runs setup
+/dispatch setup              # provision + record verification: dev server, browser, DESIGN.md, read-only DB user
 /dispatch new <idea>         # heavy new project — one-question-at-a-time intake, then build
 /dispatch <task>             # plan → locate → brief → work → accept
+/dispatch deps <add|remove|update> <package>   # a dependency change as its own dispatch
 /dispatch verify             # security critic pass over the current diff
 /dispatch db <check>         # read-only database inspection
 /dispatch status             # what's set up, what's missing
@@ -49,7 +51,8 @@ you. An `AGENTS.md` written for another tool is left intact; bootstrap appends a
 dispatch section (`<!-- dispatch:map v1 -->`) and shows you the diff first.
 
 **Then commit what bootstrap wrote** — `AGENTS.md`, `.claude/agents/dispatch-*.md`,
-`.claude/.dispatch-state.json` — before the first dispatch, so they do not land in every
+`.claude/.dispatch-state.json`, `.claude/dispatch/dispatch-measure.mjs`, and `DESIGN.md` plus
+any dev dependency setup added — before the first dispatch, so they do not land in every
 acceptance diff. Agents installed mid-session may need a restart (or `/agents`) to load;
 until then the skill falls back to a general-purpose sub-agent carrying the template body.
 
@@ -68,6 +71,17 @@ Generic agent templates in `.claude/agents/`, skipped if a file of that name alr
 | `dispatch-db-tester` | sonnet | medium | Database inspection — read-only by instruction, plus engine-level guards |
 | `dispatch-security-critic` | sonnet (haiku for trivial diffs) | medium | Critic only — never edits |
 
+Plus what bootstrap's capabilities step (`/dispatch setup`) provisions — each install proposed
+first and run only on your yes, always into the repo, never globally:
+
+| What | Where | Why |
+| --- | --- | --- |
+| Measure script | `.claude/dispatch/dispatch-measure.mjs` | One command for overflow and computed styles per width — used by acceptance and the frontend agent alike |
+| `DESIGN.md` (UI projects) | repo root | Tokens, breakpoints, components, references, and what the project never does — generated from your theme and CSS, shown before writing |
+| Browser | a browser MCP's tools on `dispatch-frontend`'s `tools:` line, or Playwright as a dev dependency with chromium in `.claude/dispatch/browsers/` (gitignored) | So "verified at 375px" is rendered, not read |
+| Read-only DB user | printed as SQL for your engine — you run it | The db-tester refuses to run on the application's read-write credential |
+| *Verification capabilities* | a section in `AGENTS.md` | What this repo can check with; `status` reports each line |
+
 The main session overrides the model per dispatch, on the Agent tool call — `sonnet` for light
 work even on the two `opus`-default agents (a copy fix, a renamed field), `opus` for anything
 the brief calls design or core-level (routing.md, "Model selection").
@@ -79,12 +93,14 @@ these templates do not.
 Bash can write. Their read-only posture is enforced by instruction, checked by the main
 session (`git status --porcelain` before and after must match), and — for databases — backed
 by real guards: a read-only DB user, `SET SESSION TRANSACTION READ ONLY`, `sqlite3 -readonly`,
-`mysql --safe-updates`. Credentials are never on a command line and never grepped into the
-transcript.
+`mysql --safe-updates`. The db-tester refuses to proceed when the only credential it can find
+is the application's read-write one. Credentials are never on a command line and never grepped
+into the transcript.
 
-The frontend agent's default tool list has no browser. Add your MCP browser tools to its
-`tools:` line after install, or the main session measures overflow itself with a headless
-Playwright one-liner — and reports rendering as *Not verified* when neither is available.
+The frontend agent's default tool list has no browser. Setup adds a browser MCP's tools to its
+`tools:` line when one is configured; otherwise both the agent and the main session run
+`.claude/dispatch/dispatch-measure.mjs` on a repo-local Playwright — and report rendering as
+*Not verified* when neither is available.
 
 ## Design notes
 
@@ -114,6 +130,19 @@ Every dispatch prompt ends, verbatim, with:
 Last position, so it is the final instruction read. It is an instruction, not a placeholder:
 the sub-agent plans numbered phases before editing and reports per phase; the main session
 checks the phases at acceptance. The brief decides *what*; phases are only *how*, within scope.
+
+**Capabilities are provisioned, not assumed.** A protocol that says "verify at 375px" or
+"connect read-only" is only as honest as the tooling behind it. Setup detects what the repo can
+check with — dev server, browser, design source, read-only database user — proposes what is
+missing, installs only on a yes and only into the repo, and writes the result into `AGENTS.md`.
+What stays missing is recorded as *none* and reported, so a *Not verified* at acceptance is
+expected rather than a surprise; `status` shows each capability with the one command that fixes
+it (references/setup.md).
+
+**Dependencies have a path.** Briefs still forbid adding packages. A needed one becomes its own
+`deps` dispatch — manifest and lockfile only, audit quoted, then a critic asked only about
+provenance, advisories, pinning and lockfile integrity — before the code that uses it
+(references/dependencies.md).
 
 **When it stops.** Two rejections mean the brief is wrong and gets rewritten; a third failure
 stops the loop and escalates to you with a summary. Reports are capped at 40 lines, and large
@@ -147,7 +176,8 @@ Frontmatter is restricted to the Agent Skills spec subset (`name`, `description`
 `compatibility`, `metadata`), so the skill packages cleanly for non-Claude-Code runtimes too.
 Where a step names something Claude Code-specific (the `Explore` agent, `isolation: "worktree"`)
 the reference gives the portable fallback next to it. Database checks cover MySQL/MariaDB,
-PostgreSQL, SQLite and MongoDB.
+PostgreSQL, SQLite and MongoDB. The measure script needs Node 18+; it renders with the repo's
+Playwright, Node or Python.
 
 `scripts/validate.sh` (bash, no dependencies) checks the skill's own structure; `evals/` holds
 scenario files describing the behaviour each fix is meant to produce.
@@ -160,16 +190,19 @@ skills/dispatch/
   references/
     prompt-spec.md            how a brief is assembled, with a worked example
     routing.md                picking the agent; fallbacks when a name is not loaded
-    acceptance.md             the main session's own check — baseline, new files, large diffs
+    acceptance.md             the main session's own check — baseline, new files, large diffs, widths
     failures.md               rejections, errors, questions, out-of-scope stops, escalation
     when-not-to-dispatch.md   the trivial-edit and hand-fix exceptions
     responsive.md             responsive clarification questions and acceptance widths
     new-project.md            heavy new project intake, one question at a time, PROJECT_BRIEF.md
     verifier.md               the security critic chain
-    bootstrap.md              building AGENTS.md, measuring the baseline, what to commit
+    bootstrap.md              building AGENTS.md, the Surfaces table, measuring the baseline, what to commit
+    setup.md                  verification capabilities — dev server, browser, DESIGN.md, read-only DB user
+    dependencies.md           the deps brief, its acceptance, and the narrow critic pass
     status.md                 what /dispatch status checks and recommends
     db-check.md               database inspection briefs, per-engine guards
   agents/                     templates installed by bootstrap
+  scripts/dispatch-measure.mjs  overflow + computed style per width; setup copies it to .claude/dispatch/
   examples/                   a real generated AGENTS.md
 scripts/validate.sh           structural checks for this repo
 evals/                        scenario files: setup, prompt, expected behaviour
