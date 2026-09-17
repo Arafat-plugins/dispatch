@@ -18,6 +18,9 @@ Current wrong behaviour:
   <what happens today, concretely — a measurement, not an adjective>
 Target behaviour:
   <what must be true when you are done, checkable>
+Page URL(s):
+  <UI briefs only: the dev-server URL from AGENTS.md → Verification capabilities + the path of
+  each page to measure, e.g. http://localhost:5173/catalog; not UI → delete this line>
 
 ## Audience
 <what consumes this code and what contract it must keep>
@@ -85,6 +88,8 @@ Current wrong behaviour:
   stays at 3 columns and overflows the viewport by roughly 180px on a 375px screen.
 Target behaviour:
   1 column below 620px, 2 up to 900px, 3 above. No horizontal overflow at any width in range.
+Page URL(s):
+  http://marketkit.local/shop/
 
 ## Audience
 Storefront catalog page. Themes consume these class names as a public contract — class names
@@ -102,7 +107,7 @@ Longhand properties, not shorthands, where the file already uses longhands.
 - do NOT commit or push
 
 ## Knowledge
-Read AGENTS.md at the repo root first. See its "Styles by surface" table.
+Read AGENTS.md at the repo root first. See its "Surfaces" table.
 
 ## Done means
 - [ ] no horizontal overflow at 320, 375, 620, 900, 1024, 1440
@@ -151,7 +156,10 @@ Any brief that designs or changes UI carries responsive Target behaviour, stated
 see **[responsive.md](responsive.md)** for the one-question-at-a-time flow that produces it and
 the default acceptance widths. "Done means" for such a brief always includes the widths
 checked, at minimum mobile/tablet/desktop or the project's own breakpoints — not just the width
-that prompted the task.
+that prompted the task. **Inputs** carries the **Page URL(s)** line — the full URL of every page
+the widths are measured on (dev-server base from *Verification capabilities* plus the path).
+The frontend agent and your own acceptance both measure exactly those; without it neither
+knows which page to load.
 
 When the repo has a `DESIGN.md`, **Format** cites the relevant component by its name there —
 "a stat card per DESIGN.md → Components; tokens and breakpoints from DESIGN.md only" — instead

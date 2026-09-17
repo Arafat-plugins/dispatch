@@ -25,6 +25,10 @@ and nothing else.
       scaffolding anything.
 - [ ] On a yes, saves the brief as `PROJECT_BRIEF.md` at the repo root, with a section matching
       each question asked plus "Out of scope for v1".
+- [ ] Before scaffolding, proposes a root commit holding only `PROJECT_BRIEF.md` (the repo has
+      no `HEAD` yet), runs it only on a yes, and records `git rev-parse HEAD` as BASE; the
+      scaffold dispatch is the one allowed before `AGENTS.md` exists, and its brief reads
+      `PROJECT_BRIEF.md` instead.
 - [ ] Scaffolds the project at `model: opus` (heavy/core work per routing.md), then runs
       `/dispatch bootstrap` before any feature dispatch, and respects the 2-concurrent-sub-agent
       cap when splitting the build.

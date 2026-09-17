@@ -10,7 +10,7 @@ experiment they want to keep) and an untracked `notes.txt`. The task touches
 
 ## Expected behaviour
 - [ ] Runs `git status --porcelain` before dispatch and sees the tree is dirty.
-- [ ] Offers commit/stash first; when the user says keep it, takes the snapshot: `BASE=$(export GIT_INDEX_FILE=.git/dispatch-base-index; git add -A >/dev/null && git write-tree; rm -f "$GIT_INDEX_FILE")` — and confirms `git status --porcelain` is unchanged afterwards (nothing staged).
-- [ ] At acceptance uses `git diff $BASE`, and the diff contains **only** `checkout.css` — the `cart.css` edit and `notes.txt` do not appear.
+- [ ] Offers commit/stash first; when the user says keep it, takes the snapshot: `( export GIT_INDEX_FILE="$(git rev-parse --path-format=absolute --git-path dispatch-snap-index)"; git read-tree HEAD && git add -A >/dev/null && git write-tree; rm -f "$GIT_INDEX_FILE" )` — which prints the tree sha, recorded in the plan as `BASE: <sha>` — and confirms `git status --porcelain` is unchanged afterwards (nothing staged).
+- [ ] At acceptance takes a second snapshot (AFTER) the same way, uses `git diff <BASE> <AFTER>` with both literal shas pasted, and the diff contains **only** `checkout.css` — the `cart.css` edit and `notes.txt` do not appear.
 - [ ] Does not reject the dispatch for `cart.css` / `notes.txt` (they pre-date the baseline).
 - [ ] If two briefs are dispatched in parallel, uses `isolation: "worktree"` (or sequences them) rather than one shared diff.

@@ -18,14 +18,23 @@ Stopped after 3 attempts: <task in one line>
 Attempt 1: <what came back, why rejected — one line>
 Attempt 2: <same>
 Attempt 3 (rewritten brief): <same>
-Current state: <files changed per git status --porcelain, left in place / reverted to $BASE>
+Current state: <files changed per git status --porcelain, left in place / reverted to BASE>
 Likely cause: <brief unspecifiable / target file is not the owner / test cannot run here / ...>
 Options: <split the task> / <you look at <path> directly> / <different approach>
 ```
 
 Leave the working tree as it is unless the user asked for reverts; say which it is. To revert
-only this dispatch: `git checkout "$BASE" -- <edited files>` and delete the files it created
-(`git status --porcelain` lists them as `??`).
+only this dispatch, with the BASE and AFTER shas from your plan (acceptance.md):
+
+```bash
+git -c core.quotePath=false diff --name-only --diff-filter=A <BASE> <AFTER>   # files it created: delete these
+git restore --source=<BASE> --worktree -- <edited or deleted files>          # the rest, back to BASE
+```
+
+`git restore --worktree` leaves the index alone; `git checkout <BASE> -- <files>` would also
+stage the reverted content. (Git older than 2.23: `git checkout <BASE> -- <files>`, then
+`git reset -q -- <files>`.) In `git status --porcelain` created files show as `??` — or as
+` A` if anything marked them intent-to-add — so list them from the diff, not from status.
 
 ## 2. Sub-agent error or timeout
 
@@ -33,13 +42,14 @@ The runtime reports an error, or nothing comes back. First find out what landed:
 
 ```bash
 git status --porcelain
-git diff --stat "$BASE"
+<the snapshot command, acceptance.md>     # prints AFTER
+git diff --stat <BASE> <AFTER>
 ```
 
 - **Nothing changed** — re-dispatch the same brief once. Counts as a failure only if it errors
   again; then treat the second error as a rejection and rewrite (the brief may be asking for
   something the environment cannot do: a test that needs a DB, a build that needs a network).
-- **Partial edits** — this is an attempt. Either revert to `$BASE` and re-dispatch, or
+- **Partial edits** — this is an attempt. Either revert to BASE (above) and re-dispatch, or
   re-dispatch with a line under Inputs: "A previous attempt left partial edits in `<files>`;
   finish them or revert them, do not start over." Never accept partial work as-is.
 

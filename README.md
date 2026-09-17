@@ -23,8 +23,8 @@ The main session holds the **map, not the territory**.
 
 - It reads `AGENTS.md` — a compact repo map, a few KB — and nothing else about the codebase.
 - It locates files by path (one `grep`), and never opens them.
-- It writes an explicit spec: inputs, audience, format, out-of-scope, and a checkable
-  "done means" list.
+- It writes an explicit spec: the task, inputs (with the page URL for UI work), audience,
+  format, out-of-scope, and a checkable "done means" list.
 - The sub-agent does the reading and the editing.
 - The main session reads the **diff** and judges it against the spec it wrote.
 
@@ -56,9 +56,10 @@ any dev dependency setup added — before the first dispatch, so they do not lan
 acceptance diff. Agents installed mid-session may need a restart (or `/agents`) to load;
 until then the skill falls back to a general-purpose sub-agent carrying the template body.
 
-**Each dispatch starts from a baseline.** Clean tree, or a snapshot of the dirty one, so the
-diff you judge is the sub-agent's alone — created files included. Parallel dispatches get
-their own worktrees.
+**Each dispatch starts from a baseline.** Clean tree, or a snapshot of the dirty one — a printed
+sha the main session records in its plan — so the diff you judge is the sub-agent's alone,
+created files included, without touching your git index. Parallel dispatches get their own
+worktrees.
 
 ## What bootstrap installs
 
@@ -69,7 +70,7 @@ Generic agent templates in `.claude/agents/`, skipped if a file of that name alr
 | `dispatch-implementer` | opus | medium | Server logic, APIs, data access — core-level implementation |
 | `dispatch-frontend` | opus | medium | CSS, layout, responsive — design work |
 | `dispatch-db-tester` | sonnet | medium | Database inspection — read-only by instruction, plus engine-level guards |
-| `dispatch-security-critic` | sonnet (haiku for trivial diffs) | medium | Critic only — never edits |
+| `dispatch-security-critic` | sonnet (haiku per call for trivial diffs) | medium | Critic only — never edits |
 
 Plus what bootstrap's capabilities step (`/dispatch setup`) provisions — each install proposed
 first and run only on your yes, always into the repo, never globally:
@@ -92,13 +93,18 @@ these templates do not.
 **On "read-only".** The critic and db-tester have no `Edit`/`Write`, but they have `Bash`, and
 Bash can write. Their read-only posture is enforced by instruction, checked by the main
 session (`git status --porcelain` before and after must match), and — for databases — backed
-by real guards: a read-only DB user, `SET SESSION TRANSACTION READ ONLY`, `sqlite3 -readonly`,
-`mysql --safe-updates`. The db-tester refuses to proceed when the only credential it can find
-is the application's read-write one. Credentials are never on a command line and never grepped
-into the transcript.
+by one real guard: **a read-only DB user** (`sqlite3 -readonly` for SQLite), which the server
+enforces whatever the agent types. Everything else is a seatbelt, put on every command because
+each `psql -c` / `mysql -e` is a new session: `PGOPTIONS='-c default_transaction_read_only=on'`,
+`mysql --init-command='SET SESSION TRANSACTION READ ONLY'`, and `mysql --safe-updates` (which
+only stops `UPDATE`/`DELETE` without a key — `INSERT`, `DROP`, `ALTER` still run). A login that
+can write can also switch a seatbelt off. So the db-tester refuses to proceed when the only
+credential it can find is the application's read-write one. Credentials are never on a command
+line and never grepped into the transcript.
 
 The frontend agent's default tool list has no browser. Setup adds a browser MCP's tools to its
-`tools:` line when one is configured; otherwise both the agent and the main session run
+`tools:` line when one is configured and you say yes (a connected Chrome stays with the main
+session); otherwise both the agent and the main session run
 `.claude/dispatch/dispatch-measure.mjs` on a repo-local Playwright — and report rendering as
 *Not verified* when neither is available.
 
@@ -177,10 +183,13 @@ Frontmatter is restricted to the Agent Skills spec subset (`name`, `description`
 Where a step names something Claude Code-specific (the `Explore` agent, `isolation: "worktree"`)
 the reference gives the portable fallback next to it. Database checks cover MySQL/MariaDB,
 PostgreSQL, SQLite and MongoDB. The measure script needs Node 18+; it renders with the repo's
-Playwright, Node or Python.
+own Playwright only — Node from `<repo>/node_modules`, else Python from `$DISPATCH_PYTHON` or
+the repo's `.venv`/`venv` — never a global install or the system interpreter, and it prints
+which one it used (`renderer: …`). `--probe` shows the same lookup without a page.
 
-`scripts/validate.sh` (bash, no dependencies) checks the skill's own structure; `evals/` holds
-scenario files describing the behaviour each fix is meant to produce.
+`scripts/validate.sh` (bash; uses node when present) checks the skill's own structure and runs
+`node --test scripts/measure.test.mjs`; `evals/` holds scenario files describing the behaviour
+each fix is meant to produce.
 
 ## Layout
 
@@ -205,6 +214,7 @@ skills/dispatch/
   scripts/dispatch-measure.mjs  overflow + computed style per width; setup copies it to .claude/dispatch/
   examples/                   a real generated AGENTS.md
 scripts/validate.sh           structural checks for this repo
+scripts/measure.test.mjs      unit tests for the measure script (node --test; no browser, no network)
 evals/                        scenario files: setup, prompt, expected behaviour
 CHANGELOG.md
 ```

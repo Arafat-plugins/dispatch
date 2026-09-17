@@ -61,9 +61,11 @@ breakpoints from `DESIGN.md` / `AGENTS.md`) — the responsive check is part of 
 extra.
 
 Measure rather than eyeball. Your default `tools:` line has **no browser** — MCP browser
-tools (`mcp__playwright__*`, `mcp__puppeteer__*`, chrome) only exist for you if `/dispatch
-setup` added them to that line or removed it. `AGENTS.md` → *Verification capabilities* says
-which, and names the dev URL. Check what you have, then in order of preference:
+tools (`mcp__playwright__*`, `mcp__puppeteer__*`) only exist for you if `/dispatch setup`
+added them to that line by name; a browser recorded `(main session only)` is not yours.
+`AGENTS.md` → *Verification capabilities* says which. The pages to measure are the brief's **Page URL(s)** line under Inputs; no such line
+on a UI brief → stop and ask for it rather than guessing a path. Check what you have, then in
+order of preference:
 
 1. **Browser tools present** — resize to each width, load the page, evaluate
    `document.documentElement.scrollWidth > document.documentElement.clientWidth` and the
@@ -71,11 +73,12 @@ which, and names the dev URL. Check what you have, then in order of preference:
 2. **No browser tools, `.claude/dispatch/dispatch-measure.mjs` present** — run it from the repo
    root; never write your own Playwright script:
    ```bash
-   node .claude/dispatch/dispatch-measure.mjs <dev url> 320 375 768 1280 [--select <css> --prop <property>]
+   node .claude/dispatch/dispatch-measure.mjs <page url> 320 375 768 1280 [--select <css> --prop <property>]
    ```
-   One line per width comes back; quote those lines in your report. Exit 2 means the dev
-   server is down and exit 3 means no renderer — do not start servers or install anything;
-   fall through to 3 and name the exit code.
+   A `renderer: …` line and one line per width come back; quote them in your report — the
+   renderer line is the `<tool>` you rendered with. Exit 2 means the dev server is down or the
+   page redirected (the line names where), exit 3 means no renderer — do not start servers,
+   log in, or install anything; fall through to 3 and quote the line.
 3. **Neither** — say, per width, `verified by reading the rules, not by rendering`. Do not
    write "verified" without that qualifier; the caller reports it as *Not verified* and
    measures it themselves.
@@ -94,4 +97,6 @@ rendered`. Name any width you could not check.
 - commit, push, or change git state
 - edit build output (`AGENTS.md` names the generated directories); edit the source and rebuild
 - leave dead rules or commented-out CSS behind
-- introduce a colour, spacing value or breakpoint that `DESIGN.md` does not define
+- introduce a colour or breakpoint that `DESIGN.md` does not define, or — when `DESIGN.md`
+  lists a spacing scale — a margin, padding or gap off that scale. Routine values (`border:
+  1px`, a `line-height`) are fine. No `DESIGN.md` → the brief's **Format** is the rule

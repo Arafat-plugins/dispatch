@@ -27,26 +27,36 @@ lists are readable. The brief tells the agent to pass them through files or the 
 
 | Engine | Pass credentials via | Not |
 | --- | --- | --- |
-| MySQL / MariaDB | `mysql --defaults-extra-file=<file>` (mode 600, `[client]` section) | `-p<password>` |
+| MySQL / MariaDB | `mysql --defaults-extra-file=<(printf '[client]\nuser=%s\npassword="%s"\n' "$DB_RO_USER" "$DB_RO_PASSWORD")` — process substitution (bash, zsh), so no file is written; it must be the first option | `-p<password>` |
 | PostgreSQL | `PGPASSFILE=<file>` / `~/.pgpass`, or `PGPASSWORD` exported from the config file, not typed | `postgres://user:pass@…` in the command |
 | MongoDB | `mongosh "$MONGO_URI_RO"` with the read-only URI exported from the config file | the URI literal |
 | SQLite | none needed | — |
 
+**Loading the values without printing them.** An env file that is valid shell (values quoted
+where they hold spaces, `#` or `$`): `set -a; . ./.env 2>/dev/null; set +a` — `2>/dev/null`
+because a parse error echoes part of the offending value. Otherwise, or when unsure, one key
+at a time: `export DB_RO_USER="$(grep -m1 '^DB_RO_USER=' .env | cut -d= -f2-)"`. Either way, **in the same Bash call as the query** — exports do not survive
+to the next tool call in every runtime — and never `echo` them to check.
+
 ## Real read-only guards, not just instructions
 
-The agent holds `Bash`; "read-only" is a rule it follows, not a wall. Add the wall where the
-engine offers one, and say in the brief which to use:
+The agent holds `Bash`; "read-only" is a rule it follows, not a wall. **The read-only database
+user is the only real guard**: the server refuses its writes whatever the agent types. The rest
+are **seatbelts** — they catch a slip, not a determined command:
 
-| Engine | Guard |
-| --- | --- |
-| MySQL / MariaDB | the read-only user, **and** `mysql --safe-updates` and `SET SESSION TRANSACTION READ ONLY;` as the first statement |
-| PostgreSQL | the read-only role, **and** `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;`, or each check wrapped in `START TRANSACTION READ ONLY; … ROLLBACK;` |
-| SQLite | `sqlite3 -readonly <file>` — always; there is no reason to open it any other way |
-| MongoDB | the read-only (`read` role) user, **and** only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` — no `insert*`, `update*`, `delete*`, `drop*`, `createIndex` |
+| Engine | Guard (the user) | Seatbelts, on **every** invocation |
+| --- | --- | --- |
+| MySQL / MariaDB | the read-only user | `--init-command='SET SESSION TRANSACTION READ ONLY'`, and `--safe-updates` (blocks only `UPDATE`/`DELETE` without a key or `LIMIT` — `INSERT`, `DROP`, `ALTER` still run) |
+| PostgreSQL | the read-only role | `PGOPTIONS='-c default_transaction_read_only=on' psql …` |
+| SQLite | `sqlite3 -readonly <file>` — always; there is no reason to open it any other way | — |
+| MongoDB | the read-only (`read` role) user | only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` — no `insert*`, `update*`, `delete*`, `drop*`, `createIndex` |
+
+**Every invocation, because each `psql -c` / `mysql -e` is a new connection.** A
+`SET SESSION … READ ONLY` sent once ends with its process; the next command starts read-write.
+And any session setting can be switched off by the same login (`SET default_transaction_read_only = off`).
 
 **A read-only user is required, not preferred.** `AGENTS.md` → *Verification capabilities*
-names it (`/dispatch setup`, step e, provisions it — see [setup.md](setup.md)). Session
-settings like `READ ONLY` are a second wall; a read-write login can switch them off.
+names it (`/dispatch setup`, step e, provisions it — see [setup.md](setup.md)).
 
 **The db-tester refuses to proceed when the only credential it can find is the application's
 read-write user**, and says what to run instead: the read-only-user SQL for the engine
@@ -75,7 +85,7 @@ connect with nothing, and report "Refused: no read-only credential" plus the set
 SQL to run for this engine.
 
 ## Posture
-READ ONLY. Open the session with: <the guard from the table>.
+READ ONLY. Put the seatbelt from the table on every command you run: <PGOPTIONS=… | --init-command=… --safe-updates | -readonly>.
 You may run SELECT, SHOW, DESCRIBE, EXPLAIN (or their equivalents below).
 Do NOT run INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, GRANT, or REPLACE.
 Do NOT modify schema or data under any circumstances.

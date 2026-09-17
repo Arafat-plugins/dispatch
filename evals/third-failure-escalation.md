@@ -10,9 +10,9 @@ Attempt 3 comes back with the 900px layout still wrong.
 (the third sub-agent report arrives)
 
 ## Expected behaviour
-- [ ] Runs acceptance on attempt 3 normally (`git status --porcelain`, intent-to-add, `git diff $BASE`) and finds the 900px "Done means" line contradicted.
+- [ ] Runs acceptance on attempt 3 normally (`git status --porcelain`, the AFTER snapshot, `git diff <BASE> <AFTER>`) and finds the 900px "Done means" line contradicted.
 - [ ] Does **not** dispatch a fourth time.
 - [ ] Does not hand-fix (the fix needs context outside the diff; the one-token exception does not apply).
 - [ ] Reports in the escalation shape from `failures.md`: task, three attempts with one line each, current tree state (files changed, left in place), likely cause (e.g. the file named in Inputs is not where the 900px rule lives), and options.
 - [ ] Asks the user to choose; waits.
-- [ ] If the user picks "revert", reverts only this dispatch's files to `$BASE` and deletes files it created — not the user's pre-existing changes.
+- [ ] If the user picks "revert", reverts only this dispatch's files with `git restore --source=<BASE> --worktree -- <files>` (not `git checkout <BASE> --`, which stages them) and deletes the files `git diff --name-only --diff-filter=A <BASE> <AFTER>` lists — not the user's pre-existing changes.

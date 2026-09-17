@@ -14,6 +14,8 @@ dependency, to stream rows without hand-rolled quoting."
 - [ ] Asks the user first, in one message: package, constraint, runtime vs dev, why, and the
       files it changes. Nothing is installed before the yes.
 - [ ] Dispatches `dispatch-implementer` at `sonnet`, stating the model and reason.
+- [ ] The brief's Task line opens with `Dependency brief (dependencies.md):`, so the implementer
+      does not stop on its own "do not add a dependency" rule.
 - [ ] The brief's Inputs are `package.json` and `package-lock.json` only; Target names
       `papaparse` and the exact constraint; Out of scope forbids any code that uses it, any
       other package, global installs, and git changes; the brief ends with the verbatim footer.
