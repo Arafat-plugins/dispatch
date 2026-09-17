@@ -83,7 +83,7 @@ still carries the template's Report section.
 
 ## Beyond the checklist
 
-Four things a checklist does not catch, worth a look every time:
+Five things a checklist does not catch, worth a look every time:
 
 1. **Files outside the brief.** Anything edited *or created* that the brief did not name is
    scope creep. `git status --porcelain` is the complete list; compare it to Inputs. Reject it,
@@ -97,6 +97,14 @@ Four things a checklist does not catch, worth a look every time:
    ```
 4. **Self-reported verification.** "Verified at 375px" in the report is a claim. Rendering
    claims from a sub-agent without browser tools are reading, not measuring — see below.
+5. **Values outside `DESIGN.md`.** A UI diff that introduces a colour, spacing value or
+   breakpoint not in `DESIGN.md` is a finding — reject it, even when it looks right. Check the
+   added lines only:
+   ```bash
+   git diff "$BASE" | grep -nE '^\+.*(#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|@media|[0-9.]+(px|rem|em)\b)'
+   ```
+   Each hit is either a `DESIGN.md` token (by name, or a value it lists) or a finding. No
+   `DESIGN.md` in the repo → skip this one and say so.
 
 ## Verifying frontend work yourself
 
@@ -105,29 +113,33 @@ rendered with, treat "verified" as **verified by reading the rules**, and report
 **Not verified** for rendering. For any design/UI task, check the widths the brief's Target
 behaviour named — at minimum mobile ~375px, tablet ~768px, desktop ~1280px+, or the project's
 own breakpoints; see **[responsive.md](responsive.md)**. Report per width: measured, or
-**Not verified**. Measure it yourself when the repo has Playwright installed
-(`node -e 'require("playwright")'` exits 0) and a running dev URL:
+**Not verified**.
 
-```bash
-node -e '
-const { chromium } = require("playwright");
-const [url, ...widths] = process.argv.slice(1);
-(async () => {
-  const b = await chromium.launch(); const p = await b.newPage();
-  for (const w of widths.map(Number)) {
-    await p.setViewportSize({ width: w, height: 900 });
-    await p.goto(url, { waitUntil: "networkidle" });
-    const r = await p.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
-    console.log(w, r.sw > r.cw ? "OVERFLOW by " + (r.sw - r.cw) + "px" : "ok");
-  }
-  await b.close();
-})();' "$URL" 320 375 620 900 1024 1440
-```
+`AGENTS.md` → *Verification capabilities* says what this repo can render with
+(**[setup.md](setup.md)**). Use what it records:
 
-One line per width, nothing else enters your context. Extend the `evaluate` for column counts
-(`getComputedStyle(el).gridTemplateColumns.split(" ").length`) when "Done means" names them.
-No Playwright, no dev server → the line in the report is `Not verified: rendering (no browser
-available)`. That is an honest result; a green tick without a measurement is not.
+- **Rendering: local Playwright** — run the repo's copy of the measure script, the same one the
+  frontend agent runs. Never retype a Playwright snippet; one script means one result format.
+
+  ```bash
+  node .claude/dispatch/dispatch-measure.mjs "$URL" 320 375 768 1280
+  node .claude/dispatch/dispatch-measure.mjs "$URL" 375 900 --select .grid --prop grid-template-columns
+  ```
+
+  One line per width — `overflow: no`, or `overflow: yes, <px>` — plus the computed value when
+  `--select`/`--prop` are given (count the `grid-template-columns` values for a column count).
+  Nothing else enters your context. Exit 0 means *measured*, not *passed*: read the lines.
+- **Rendering: MCP `<name>`** — if that browser is in your own tool list, resize to each width,
+  load `$URL`, and evaluate `document.documentElement.scrollWidth - document.documentElement.clientWidth`
+  plus the computed values "Done means" names. Same one-line-per-width report.
+- **Rendering: none**, or no section → every width is `Not verified: rendering (no browser
+  available)`. That is an honest result; a green tick without a measurement is not.
+
+The script starts nothing. **Exit 2** (`dev server not reachable at <url>`): start the server
+with the command *Verification capabilities* records — in the background, stopped when you are
+done — or ask the user to, then re-run. **Exit 3** (Playwright or its chromium missing): report
+per width `Not verified`, and point the user at `/dispatch setup`. Portable fallback: the script
+is plain Node; any runtime with a shell runs it the same way.
 
 ## The verdict
 

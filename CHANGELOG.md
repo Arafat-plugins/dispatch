@@ -1,5 +1,77 @@
 # Changelog
 
+## 1.5.0 — 2026-09-17
+
+"Capabilities". 1.4.0 assumed tooling it never provisioned: a frontend agent that could not see,
+no design source, no path for adding a dependency, and database guards that were described but
+never set up. No renames; the footer line, the existing commands, the four agent names,
+`effort: medium`, model-by-weight and the 2-concurrent cap are unchanged.
+
+**Setup — capabilities are provisioned, not assumed**
+- New mode `/dispatch setup` (new `references/setup.md`); bootstrap runs it as Step 2c. Each
+  step is detect → propose → install → record; nothing installs without saying what and a yes,
+  never globally, never outside the repo; a missing capability is recorded and said, never
+  skipped quietly.
+- Runtime and dev server detected and recorded. Browser: a configured MCP (playwright,
+  puppeteer, chrome, claude-in-chrome, Claude_Browser) gets its exact tool names appended to the
+  installed `dispatch-frontend`'s `tools:` line; else Playwright as a dev dependency with chromium
+  kept in `.claude/dispatch/browsers/`; else `Rendering: none` and every width is *Not verified*.
+- `AGENTS.md` gains a *Verification capabilities* section; the state file gains
+  `capabilities_measured` (bootstrap.md).
+
+**One measuring script**
+- New `skills/dispatch/scripts/dispatch-measure.mjs`, copied to `.claude/dispatch/`:
+  `<url> <width>... [--select <css> --prop <property>]` → one line per width, overflow and the
+  computed value. Starts nothing; exit 2 `dev server not reachable at <url>`, exit 3 no renderer.
+  Uses the repo's Node Playwright, else Python Playwright.
+- The inline Playwright snippet is gone from acceptance.md; acceptance, responsive.md and the
+  frontend template call the script.
+
+**Design guidance**
+- Setup step d generates `DESIGN.md` for UI projects — Tokens, Breakpoints, Components,
+  References, Never — from the theme config, CSS custom properties and `@media` queries, plus at
+  most three one-at-a-time questions; shown before writing. An optional frontend-design skill is
+  offered only if the registry actually lists one, installed into the repo.
+- `dispatch-frontend` reads `AGENTS.md`, then `DESIGN.md`, then the briefed files; what
+  `DESIGN.md` defines cannot be overridden by a brief. prompt-spec.md cites `DESIGN.md`
+  components in **Format**; responsive.md skips what it answers; acceptance.md gains a fifth
+  check — a colour, spacing value or breakpoint not in `DESIGN.md` is a finding.
+
+**Dependencies**
+- New mode `/dispatch deps <add|remove|update> <package>` (new `references/dependencies.md`):
+  ask first; a `sonnet` brief limited to manifest + lockfile, install clean, tests green, audit
+  quoted in ≤ 10 lines; acceptance rejects any source file; then `/dispatch verify` asking only
+  about provenance, advisories, pinning and lockfile integrity.
+- failures.md routes "a dependency is needed" here; when-not-to-dispatch.md allows a one-line
+  bump of a package already present; the implementer names package, constraint and reason when
+  it stops.
+
+**Database guards**
+- Setup step e detects a read-only credential by key name only, or prints the engine's SQL to
+  create one (Postgres, MySQL/MariaDB, MongoDB; SQLite uses `-readonly`) — the user runs it.
+- "Prefer a read-only user" is now a hard rule: the db-tester refuses to proceed when the only
+  credential it can find is the application's read-write user, and confirms its grants after
+  connecting (db-check.md, dispatch-db-tester.md "Start here").
+
+**Surfaces and status**
+- bootstrap.md generates a *Surfaces* table (route → entry → view → styles) for Laravel,
+  Next.js/Nuxt/SvelteKit, WordPress and plain PHP, capped at ~60 rows; LOCATE skips the grep
+  when it names the files.
+- `status` reports each capability ✅ / ⚠️ / ❌ with the one command that fixes it.
+
+**Repo**
+- `scripts/validate.sh`: measure script exists and passes `node --check` (skipped only without
+  node); no inline `chromium.launch` in references or agents; setup.md and dependencies.md exist
+  and are linked; links between references resolve; DESIGN.md wiring; the db refusal rule;
+  the Surfaces recipes; version at least 1.5.0; the footer is the last line of every brief
+  template and is paraphrased nowhere in the repo; SKILL.md stays under 250 lines.
+- `README.md`: `setup` and `deps` in usage, the provisioned files, "Capabilities are
+  provisioned, not assumed".
+- `evals/`: scenarios for an MCP browser found by setup, no browser → *Not verified*, a deps
+  brief limited to the lockfile, and the db-tester refusing read-write credentials.
+- `examples/AGENTS.example.md`: a filled *Verification capabilities* section and a *Surfaces*
+  table.
+
 ## 1.4.0 — 2026-09-16
 
 **Sub-agent effort is medium**

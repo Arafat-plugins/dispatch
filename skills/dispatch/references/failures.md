@@ -62,6 +62,11 @@ This is the agent doing the right thing. Decide, do not overrule:
   accepted.
 - The agent is wrong and the change fits in the briefed files → re-dispatch with the reason
   under Out of scope: "do NOT edit `<file>`; the change belongs in `<briefed file>` because …".
+- **It is a dependency** — the agent needs a package the manifest does not have. Not a file to
+  add to Inputs: pause the task, ask the user (package, constraint, dev or runtime, why), and on
+  a yes run a deps dispatch per **[dependencies.md](dependencies.md)** — its own brief,
+  acceptance and narrow verify. Then re-dispatch the original brief with the package present.
+  Not a failure; do not count it. On a no, the task is re-planned without it.
 
 Never reply "edit it anyway" without adding the file to Inputs — then it is unbriefed scope
 creep you cannot check.

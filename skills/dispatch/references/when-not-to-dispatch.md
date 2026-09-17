@@ -18,6 +18,12 @@ Still take the baseline, still run the repo's lint/test from `AGENTS.md`, still 
 If you find yourself reading the file to work out *where* the five lines go, stop — that is a
 dispatch.
 
+**Dependencies.** A version bump of a dependency already present — one line in a manifest or
+lockfile you already hold, applied with the package manager's own command — may be done
+directly, followed by install, test and audit as dependencies.md's "Done means" lists.
+Everything else — a new package, a removal, a bump that needs code changes or pulls in new
+packages — is a deps dispatch (**[dependencies.md](dependencies.md)**).
+
 ## The hand-fix exception during rejection
 
 Default on rejection is re-dispatch. The one exception:

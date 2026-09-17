@@ -152,3 +152,10 @@ see **[responsive.md](responsive.md)** for the one-question-at-a-time flow that 
 the default acceptance widths. "Done means" for such a brief always includes the widths
 checked, at minimum mobile/tablet/desktop or the project's own breakpoints — not just the width
 that prompted the task.
+
+When the repo has a `DESIGN.md`, **Format** cites the relevant component by its name there —
+"a stat card per DESIGN.md → Components; tokens and breakpoints from DESIGN.md only" — instead
+of re-describing spacing, colour or type in the brief. The frontend agent reads `DESIGN.md`
+before any UI work, and a brief cannot override what it defines; a design change that needs a
+new token is a change to `DESIGN.md`, briefed as such. "Done means" names the widths in a form
+`dispatch-measure.mjs` can check (see responsive.md).

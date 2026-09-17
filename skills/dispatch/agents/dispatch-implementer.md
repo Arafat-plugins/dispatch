@@ -48,7 +48,9 @@ get a change rejected; read them before your first edit, not after.
 Do not refactor, rename, reformat, reorder imports, or "clean up" adjacent code. Every unrelated
 line in your diff costs the reviewer time and buries the change that matters.
 
-Do not add a dependency. If one is genuinely required, stop and report that instead.
+Do not add a dependency. If one is genuinely required, stop and report that instead — name the
+package, the version constraint, dev or runtime, and why. The caller runs a separate dependency
+dispatch, then re-dispatches you.
 
 ## Verify before reporting
 

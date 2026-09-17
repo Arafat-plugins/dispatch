@@ -29,7 +29,7 @@ lists are readable. The brief tells the agent to pass them through files or the 
 | --- | --- | --- |
 | MySQL / MariaDB | `mysql --defaults-extra-file=<file>` (mode 600, `[client]` section) | `-p<password>` |
 | PostgreSQL | `PGPASSFILE=<file>` / `~/.pgpass`, or `PGPASSWORD` exported from the config file, not typed | `postgres://user:pass@…` in the command |
-| MongoDB | `mongosh "$MONGO_URI"` with the variable exported from the config file | the URI literal |
+| MongoDB | `mongosh "$MONGO_URI_RO"` with the read-only URI exported from the config file | the URI literal |
 | SQLite | none needed | — |
 
 ## Real read-only guards, not just instructions
@@ -39,14 +39,25 @@ engine offers one, and say in the brief which to use:
 
 | Engine | Guard |
 | --- | --- |
-| MySQL / MariaDB | a read-only DB user if one exists; else `mysql --safe-updates` and `SET SESSION TRANSACTION READ ONLY;` as the first statement |
-| PostgreSQL | a read-only role if one exists; else `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;` or wrap each check in `START TRANSACTION READ ONLY; … ROLLBACK;` |
+| MySQL / MariaDB | the read-only user, **and** `mysql --safe-updates` and `SET SESSION TRANSACTION READ ONLY;` as the first statement |
+| PostgreSQL | the read-only role, **and** `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;`, or each check wrapped in `START TRANSACTION READ ONLY; … ROLLBACK;` |
 | SQLite | `sqlite3 -readonly <file>` — always; there is no reason to open it any other way |
-| MongoDB | a read-only user if one exists; only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` — no `insert*`, `update*`, `delete*`, `drop*`, `createIndex` |
+| MongoDB | the read-only (`read` role) user, **and** only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` — no `insert*`, `update*`, `delete*`, `drop*`, `createIndex` |
 
-Ask the user for a read-only user once, and record it in `AGENTS.md` as the connection to
-use for checks. Then confirm after the run: `git status --porcelain` unchanged (the agent
-touched no files), and no DDL/DML in the queries it reports.
+**A read-only user is required, not preferred.** `AGENTS.md` → *Verification capabilities*
+names it (`/dispatch setup`, step e, provisions it — see [setup.md](setup.md)). Session
+settings like `READ ONLY` are a second wall; a read-write login can switch them off.
+
+**The db-tester refuses to proceed when the only credential it can find is the application's
+read-write user**, and says what to run instead: the read-only-user SQL for the engine
+(setup.md, step e — `/dispatch setup` prints it) and the env key to store it under. A
+credential `AGENTS.md` does not name as read-only counts as read-write; the agent does not
+connect with it to find out. SQLite is the one exception — `-readonly` is its guard.
+
+So, before dispatching: *Verification capabilities* says `read-only user: none` → do not
+dispatch; give the user the SQL and wait for their confirmation. Then confirm after the run:
+`git status --porcelain` unchanged (the agent touched no files), and no DDL/DML in the queries
+it reports.
 
 ## The brief
 
@@ -56,8 +67,12 @@ touched no files), and no DDL/DML in the queries it reports.
 
 ## Connection
 Engine: <mysql | postgres | sqlite | mongo>.
-Read credentials from <config file>. Pass them via <option file / env var per the table>.
+Read-only user: <name>, credentials under <env key(s)> in <config file>.
+Pass them via <option file / env var per the table>.
 Do not print them in your output or in any command you quote.
+If the only credential you can find is the application's read-write user, refuse to proceed:
+connect with nothing, and report "Refused: no read-only credential" plus the setup.md step e
+SQL to run for this engine.
 
 ## Posture
 READ ONLY. Open the session with: <the guard from the table>.

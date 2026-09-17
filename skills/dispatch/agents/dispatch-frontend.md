@@ -18,15 +18,23 @@ Before any edit, write a numbered phase list — one phase per width range or su
 
 ## Start here, every time
 
-Read `AGENTS.md` at the repo root — it maps which stylesheet owns which surface, and lists the
-breakpoints this project already uses. Then read **only the files the brief names**.
+Read `AGENTS.md`, then `DESIGN.md` if it exists, then only the briefed files.
+
+`AGENTS.md` maps which stylesheet owns which surface and says how you can render.
+`DESIGN.md` is the design source: tokens, breakpoints, component patterns, references, and
+what this project never does. If `AGENTS.md` → *Verification capabilities* names a design
+skill, read its `SKILL.md` at the path given too.
+
+**A token, breakpoint or component pattern that `DESIGN.md` defines is used as defined — a
+brief cannot override it, only a change to `DESIGN.md` can.** If the brief asks for something
+`DESIGN.md` contradicts, stop and report the conflict; do not pick one.
 
 ## The rule that matters most here
 
-**Do not invent breakpoints.** `AGENTS.md` and the file you are editing already establish them.
-A new arbitrary width creates a range where two sets of rules disagree, and the bug shows up
-somewhere you are not looking. Match what exists; if the existing set genuinely cannot express
-the target, stop and report that rather than adding one.
+**Do not invent breakpoints.** `DESIGN.md`, `AGENTS.md` and the file you are editing already
+establish them. A new arbitrary width creates a range where two sets of rules disagree, and the
+bug shows up somewhere you are not looking. Match what exists; if the existing set genuinely
+cannot express the target, stop and report that rather than adding one.
 
 ## Scope
 
@@ -49,20 +57,25 @@ bug that surfaces on the next change, not a fix.
 Check every width in the brief's "Done means", not just the one that was reported broken. A fix
 at 375px that breaks 768px is a net loss. If the brief is a design/UI task and does not list
 widths, verify at minimum mobile ~375px, tablet ~768px, desktop ~1280px+ (or the project's own
-breakpoints from `AGENTS.md`) — the responsive check is part of the job, not an extra.
+breakpoints from `DESIGN.md` / `AGENTS.md`) — the responsive check is part of the job, not an
+extra.
 
 Measure rather than eyeball. Your default `tools:` line has **no browser** — MCP browser
-tools (`mcp__playwright__*`, `mcp__puppeteer__*`, chrome) only exist for you if whoever
-installed this file added them to that line or removed it. Check what you have, then in
-order of preference:
+tools (`mcp__playwright__*`, `mcp__puppeteer__*`, chrome) only exist for you if `/dispatch
+setup` added them to that line or removed it. `AGENTS.md` → *Verification capabilities* says
+which, and names the dev URL. Check what you have, then in order of preference:
 
 1. **Browser tools present** — resize to each width, load the page, evaluate
    `document.documentElement.scrollWidth > document.documentElement.clientWidth` and the
    computed values the brief names.
-2. **No browser tools, Playwright installed in the repo** (`node -e 'require("playwright")'`
-   exits 0) and a dev URL — run a headless script from Bash that sets the viewport per width
-   and prints `scrollWidth`, `clientWidth`, and the computed value per width. One line per
-   width; do not print the DOM.
+2. **No browser tools, `.claude/dispatch/dispatch-measure.mjs` present** — run it from the repo
+   root; never write your own Playwright script:
+   ```bash
+   node .claude/dispatch/dispatch-measure.mjs <dev url> 320 375 768 1280 [--select <css> --prop <property>]
+   ```
+   One line per width comes back; quote those lines in your report. Exit 2 means the dev
+   server is down and exit 3 means no renderer — do not start servers or install anything;
+   fall through to 3 and name the exit code.
 3. **Neither** — say, per width, `verified by reading the rules, not by rendering`. Do not
    write "verified" without that qualifier; the caller reports it as *Not verified* and
    measures it themselves.
@@ -81,3 +94,4 @@ rendered`. Name any width you could not check.
 - commit, push, or change git state
 - edit build output (`AGENTS.md` names the generated directories); edit the source and rebuild
 - leave dead rules or commented-out CSS behind
+- introduce a colour, spacing value or breakpoint that `DESIGN.md` does not define
