@@ -31,24 +31,28 @@ SQLite is the one exception: `sqlite3 -readonly` is its guard, and there is no u
 
 ## Absolute constraints
 
-Read-only is an instruction, not a wall — you hold `Bash`. So build the wall yourself, first
-thing, per engine (the brief says which):
+Read-only is an instruction, not a wall — you hold `Bash`. The read-only user is the only real
+wall; add the seatbelt on top, **on every command** — each `psql -c` / `mysql -e` is a new
+connection, and a `SET SESSION … READ ONLY` sent once is gone by the next one:
 
-| Engine | Open the session with |
+| Engine | Every invocation looks like |
 | --- | --- |
-| MySQL / MariaDB | `mysql --defaults-extra-file=<file> --safe-updates`, then `SET SESSION TRANSACTION READ ONLY;` |
-| PostgreSQL | `psql` with `PGPASSFILE`, then `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;` |
-| SQLite | `sqlite3 -readonly <file>` — never without the flag |
-| MongoDB | `mongosh "$MONGO_URI_RO"` (the read-only URI the brief names); only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` |
+| MySQL / MariaDB | `mysql --defaults-extra-file=<(printf '[client]\nuser=%s\npassword="%s"\n' "$DB_RO_USER" "$DB_RO_PASSWORD") --init-command='SET SESSION TRANSACTION READ ONLY' --safe-updates -e '<query>'` |
+| PostgreSQL | `PGOPTIONS='-c default_transaction_read_only=on' psql -X -c '<query>'` (password via `PGPASSFILE` or `PGPASSWORD`) |
+| SQLite | `sqlite3 -readonly <file> '<query>'` — never without the flag |
+| MongoDB | `mongosh "$MONGO_URI_RO" --eval '<query>'` (the read-only URI the brief names); only `find`, `aggregate`, `countDocuments`, `explain`, `getIndexes` |
+
+The values come from the config file the brief names, loaded in the same Bash call as the
+query and never echoed (db-check.md, "Loading the values"). You have no `Write` tool; the
+`<(…)` form needs none. Never switch a seatbelt off (`SET … = off`), for any reason.
 
 Connect only as the read-only user `AGENTS.md` and the brief name. Right after opening, confirm
-it really is read-only — any write privilege in the result means stop and report, before any
-check:
+it really is read-only — any row or privilege below means stop and report, before any check:
 
 | Engine | Confirm with |
 | --- | --- |
-| MySQL / MariaDB | `SHOW GRANTS FOR CURRENT_USER();` — nothing beyond `SELECT`, `SHOW VIEW`, `USAGE` |
-| PostgreSQL | `SELECT rolsuper FROM pg_roles WHERE rolname = current_user;` and `SELECT DISTINCT privilege_type FROM information_schema.table_privileges WHERE grantee = current_user;` — not superuser, `SELECT` only |
+| MySQL / MariaDB | `SHOW GRANTS FOR CURRENT_USER();` — nothing beyond `SELECT`, `SHOW VIEW`, `USAGE` (a granted role shows here too: check its grants with `SHOW GRANTS FOR CURRENT_USER() USING <role>`) |
+| PostgreSQL | `SELECT rolsuper, rolcreaterole, rolcreatedb, rolbypassrls FROM pg_roles WHERE rolname = current_user;` — all `f`; `SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema') AND has_table_privilege(format('%I.%I', table_schema, table_name), 'INSERT, UPDATE, DELETE, TRUNCATE') LIMIT 5;` — 0 rows (`has_table_privilege` counts privileges inherited through roles, which a `grantee = current_user` filter misses); `SELECT rolname FROM pg_roles WHERE pg_has_role(current_user, oid, 'MEMBER') AND rolname <> current_user;` — 0 rows, or only roles you can name as read-only |
 | MongoDB | `db.runCommand({ connectionStatus: 1 }).authInfo.authenticatedUserRoles` — `read` / `readAnyDatabase` only |
 
 You may run: `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`, and read-only client commands — or their
@@ -68,8 +72,8 @@ Read them from the config file the brief names. **Never print them** — not in 
 command you echo, not in an error message. Redact them from any command you quote back.
 
 **Never put them on a command line.** Tool calls are recorded verbatim. Use
-`--defaults-extra-file`, `PGPASSFILE`, or an exported variable read from the config file —
-not `-p<password>`, not a URI with the password inline.
+`--defaults-extra-file=<(…)`, `PGPASSFILE`, or a variable exported from the config file in the
+same call — not `-p<password>`, not a URI with the password inline.
 
 If no connection details are available, stop and say so. Do not guess at credentials and do not
 try defaults.

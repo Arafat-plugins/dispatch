@@ -20,7 +20,7 @@ accepted work
   → findings to the user; the user decides what to fix
 ```
 
-**The scout is not a sub-agent.** You read `git diff $BASE` in step 5; the scout stage is you
+**The scout is not a sub-agent.** You read `git diff <BASE> <AFTER>` in step 5; the scout stage is you
 reducing that to files, surfaces and risk classes. Dispatching another agent to re-read the
 same diff spends a run to learn what you already know. The only exception is an oversize diff
 you reviewed with `--stat` and per-file reads — then a read-only scout (routing.md) may
@@ -39,8 +39,8 @@ the critic knows what to be suspicious of.
 From the acceptance read. If you need to look again:
 
 ```bash
-git diff --stat "$BASE"
-git diff "$BASE" -- <path>          # per file; created files need the intent-to-add step from acceptance.md
+git diff --stat <BASE> <AFTER>
+git diff <BASE> <AFTER> -- <path>   # per file; both shas are in your plan (acceptance.md) and include created files
 ```
 
 Reduce to: which files, which surfaces, and — the part that matters — **what kind of risk this
@@ -62,6 +62,10 @@ Naming what is out of scope is as valuable as naming what is in. A deps dispatch
 
 ## Stage 2 — the critic brief
 
+**Only on an idle tree.** Dispatch the critic when no other agent is editing this working
+tree — a worker in its own worktree is fine; one in yours is not, because its edits would show
+up in the check below as if the critic had made them (routing.md, "Concurrency cap").
+
 Before dispatching, snapshot the tree so you can prove afterwards that the critic changed
 nothing:
 
@@ -77,8 +81,8 @@ redirection into files, no sed -i, no git commands that change state, no install
 output is findings, or the sentence "No findings."
 
 ## Diff to evaluate
-git diff <BASE>   (<BASE> is the snapshot the caller gives you; created files are already
-intent-to-add, so they appear in the diff)
+git diff <BASE> <AFTER>   (the caller pastes both literal shas here: the snapshots taken
+before and after the change; created files appear in this diff)
 
 ## The change
 <scout summary: files, surfaces, what it does>

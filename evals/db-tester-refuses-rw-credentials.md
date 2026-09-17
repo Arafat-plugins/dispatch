@@ -21,6 +21,8 @@ own read-write login — and no `*_RO` key. `AGENTS.md` → *Verification capabi
       `DATABASE_URL`, never its value — and it does not connect to "check grants".
 - [ ] After the user creates the user and confirms, `AGENTS.md` records
       `read-only user: dispatch_ro (DATABASE_URL_RO)`; the re-dispatched db-tester connects with
-      it, confirms it is not superuser and holds `SELECT` only, sets the session read-only, then
-      runs the check.
+      it, confirms it is not superuser, that `has_table_privilege` finds no INSERT/UPDATE/DELETE
+      on any table and that it inherits no role, puts
+      `PGOPTIONS='-c default_transaction_read_only=on'` on **every** `psql` call (never one
+      `SET SESSION` in a separate call), then runs the check.
 - [ ] `git status --porcelain` is unchanged after the db-tester returns.

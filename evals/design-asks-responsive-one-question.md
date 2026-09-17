@@ -9,8 +9,8 @@ direction given.
 `/dispatch add a product filters sidebar to the catalog page`
 
 ## Expected behaviour
-- [ ] Recognises this as UI/design work under Rule C: responsive behaviour must be in scope and
-      in "Done means" before a brief is written.
+- [ ] Recognises this as UI/design work under SKILL.md → "Designing or changing UI": responsive
+      behaviour must be in scope and in "Done means" before a brief is written.
 - [ ] Before briefing, asks the user how it should look on smaller screens using
       `AskUserQuestion` with **one question per call**, 2-4 concrete options (e.g. "Filters on
       mobile: collapse into a drawer / move below results / stay visible, narrower?").

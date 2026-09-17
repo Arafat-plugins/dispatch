@@ -9,7 +9,8 @@ acceptance and its own critic pass, before any code uses it.
 
 - A sub-agent stopped: "a dependency is needed" (failures.md, case 4).
 - The user asks to add, remove or update a package.
-- `status` or an audit names a vulnerable version.
+- An audit the user ran, or one quoted in an earlier deps report (`npm audit`, `composer audit`,
+  `pip-audit`, …), names a vulnerable version. `status` runs no audit.
 
 The one exception — a version bump of a dependency already present, one line you already hold —
 is in **[when-not-to-dispatch.md](when-not-to-dispatch.md)**. Everything else comes here.
@@ -37,11 +38,13 @@ Clean tree and a baseline, as every dispatch (acceptance.md).
 
 ## The brief
 
-**Always `sonnet`**, to `dispatch-implementer` (overridden down on the Agent tool call).
+**Always `sonnet`**, to `dispatch-implementer` (overridden down on the Agent tool call). The
+Task line opens with `Dependency brief (dependencies.md):` — that exact phrase is what lifts the
+implementer's "do not add a dependency" rule, for the manifest and lockfile only.
 
 ```
 ## Task
-<add | remove | update> <package> <exact version constraint>, <dev | runtime> dependency.
+Dependency brief (dependencies.md): <add | remove | update> <package> <exact version constraint>, <dev | runtime> dependency.
 
 ## Inputs
 Files you may edit:
@@ -103,7 +106,7 @@ As acceptance.md, plus:
   naming packages and where they resolve from. New transitive packages are a line in your
   verdict, by count:
   ```bash
-  git diff "$BASE" -- <lockfile> | grep -nE '^\+ *("?(name|version|resolved)"? *[:=]|"node_modules/)' | head -40
+  git diff <BASE> <AFTER> -- <lockfile> | grep -nE '^\+ *("?(name|version|resolved)"? *[:=]|"node_modules/)' | head -40
   ```
 - The audit lines are in the report. A new advisory at high or critical severity is a
   rejection unless the user accepts it by name.

@@ -56,8 +56,19 @@ for every dispatch brief that follows; do not re-derive it from memory later.
 
 ## Then: scaffold, bootstrap, build
 
+0. **A root commit first.** An empty repo has no `HEAD`: `git rev-parse HEAD` fails, so there
+   is no BASE and acceptance cannot diff the scaffold. Propose the user's first commit, holding
+   only the brief, and run it on a yes — this skill never commits on its own:
+   ```bash
+   git add PROJECT_BRIEF.md && git commit -m "chore: project brief"
+   git rev-parse HEAD                                  # BASE for the scaffold dispatch
+   ```
+   On a no, ask the user to make any first commit; do not dispatch the scaffold without one.
 1. **Scaffold** the project — a heavy/core task, so per [routing.md](routing.md#model-selection)
-   this runs at `opus`.
+   this runs at `opus`. This dispatch is **exempt from SKILL.md's "no map, no dispatch" rule**:
+   there is nothing to map yet. Its brief's Knowledge line reads "Read `PROJECT_BRIEF.md` at
+   the repo root first; there is no `AGENTS.md` yet", and its Inputs name the directories and
+   files the scaffold may create. Acceptance runs as usual, against that BASE.
 2. Run **`/dispatch bootstrap`** so `AGENTS.md` exists before any feature dispatch —
    [bootstrap.md](bootstrap.md) reads `PROJECT_BRIEF.md` for "What this project is" when there
    is no code yet to survey.

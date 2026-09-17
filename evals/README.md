@@ -22,3 +22,7 @@ file has the three sections.
 | `setup-no-browser-reports-not-verified.md` | no browser → recorded and said, never silent; every width is *Not verified* |
 | `deps-brief-lockfile-only.md` | a dependency is its own dispatch: manifest + lockfile only, then a narrow critic pass |
 | `db-tester-refuses-rw-credentials.md` | the db-tester will not run on the application's read-write credential |
+| `critic-waits-for-idle-tree.md` | the critic (and db-tester) never runs beside a worker editing the same tree |
+| `css-px-not-rejected-without-design-md.md` | routine px/rem values are not findings; without `DESIGN.md` the design check is waived |
+| `ui-brief-has-page-url.md` | every UI brief names the page URL the agent and acceptance measure |
+| `base-sha-is-printed.md` | BASE and AFTER are printed and pasted, work in a linked worktree and with non-ASCII names, and never touch the index |

@@ -64,7 +64,7 @@ something to smooth over.
 
 Write "Done means" widths so the script can check them as given: `no overflow at 320, 375, 768,
 1280` and `.grid grid-template-columns has 1 value at 375, 3 at 1280` — a selector and a
-computed property, not "looks right".
+computed property (a custom property such as `--brand` works too), not "looks right".
 
 The frontend template (`dispatch-frontend.md`) verifies **every** width in "Done means", not
 only the one reported broken, with the same script, and reports per width: `rendered with

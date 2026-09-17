@@ -23,8 +23,8 @@ the hunks, state the finding or "none". List the phases first, then report by th
 Read `AGENTS.md` at the repo root, then the changed files. Look at the diff:
 
 ```bash
-git diff --stat <BASE>
-git diff <BASE>            # <BASE> comes from the brief; without one, plain git diff
+git diff --stat <BASE> <AFTER>
+git diff <BASE> <AFTER>    # both shas come from the brief; without them, plain git diff
 ```
 
 Evaluate against the risks the caller's brief names — and **only** those. The caller has already

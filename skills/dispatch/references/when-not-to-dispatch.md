@@ -7,8 +7,10 @@ more than the edit. The rule is narrow on purpose; the default stays **dispatch*
 
 - **≤ ~5 changed lines**, in one file.
 - **You already hold the exact lines** — from a diff you accepted, from the user pasting them,
-  from `AGENTS.md`, or from a `grep -n` hit. You can make the edit with an exact-match
-  replace and never open the file.
+  from `AGENTS.md`, or from a `grep -n` hit. Read only those lines (Claude Code: `Read` with
+  `offset`/`limit` around the `grep -n` line number — its `Edit` refuses a file not yet read
+  this session), then make an exact-match replace. Elsewhere: `sed -n '<from>,<to>p' <file>`,
+  then the runtime's edit tool. Never the whole file.
 - **No judgement about surrounding code** is needed: a typo, a wrong constant, a one-line
   config value, a version string, a label.
 

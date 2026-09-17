@@ -4,7 +4,7 @@ description: Delegate implementation work to sub-agents while the main session k
 license: MIT
 compatibility: Any agent runtime that can spawn sub-agents and run shell commands. Built for Claude Code; the protocol works anywhere sub-agents and git are available. Git is required for the acceptance and verify steps.
 metadata:
-  version: 1.5.0
+  version: 1.5.1
   author: Arafat-plugins
 ---
 
@@ -71,7 +71,8 @@ Three outcomes:
 
 - **No `AGENTS.md`** — say so and offer `bootstrap` before anything else. A dispatch without a
   map is exactly the situation this skill exists to prevent. Do not proceed to a task dispatch
-  with no map unless the user tells you to.
+  with no map unless the user tells you to. One exemption: the **scaffold** dispatch of a new
+  project runs before any map exists, from `PROJECT_BRIEF.md` (new-project.md).
 - **`AGENTS.md` exists but has no marker** — it was written for another tool (Codex, Cursor, a
   human). Treat it as **not bootstrapped**: it may lack the sections sub-agents need. Offer
   `bootstrap`, which appends a dispatch section and never overwrites what is there.
@@ -86,21 +87,24 @@ Read **[references/when-not-to-dispatch.md](references/when-not-to-dispatch.md)*
 short, and the rule is narrow.
 
 **Record the baseline.** Acceptance judges *the sub-agent's* diff, so you need a point to
-diff from that excludes whatever was already uncommitted:
+diff from that excludes whatever was already uncommitted. Each command below **prints** a sha:
+write it into your plan as `BASE: <sha>` and paste that literal into later commands. A shell
+variable does not survive between tool calls in every runtime.
 
 ```bash
 git status --porcelain           # empty = clean. Preferred: commit or stash first.
-BASE=$(git rev-parse HEAD)       # clean tree
+git rev-parse HEAD               # clean tree: the printed sha is BASE
 ```
 
-Dirty tree the user does not want to commit yet — snapshot it without touching the index:
+Dirty tree the user does not want to commit yet — **the snapshot command**: a throwaway index,
+so the real index is never touched; the printed tree sha is BASE:
 
 ```bash
-BASE=$(export GIT_INDEX_FILE=.git/dispatch-base-index; git add -A >/dev/null && git write-tree; rm -f "$GIT_INDEX_FILE")
+( export GIT_INDEX_FILE="$(git rev-parse --path-format=absolute --git-path dispatch-snap-index)"; git read-tree HEAD && git add -A >/dev/null && git write-tree; rm -f "$GIT_INDEX_FILE" )
 ```
 
-Keep `$BASE` for step 5. Details, and worktree isolation for parallel or risky dispatches, in
-**[references/acceptance.md](references/acceptance.md)**.
+No commit yet (empty repo) → new-project.md makes a root commit first. Details, older git, and
+worktree isolation in **[references/acceptance.md](references/acceptance.md)**.
 
 ## At most 2 sub-agents at once
 
@@ -134,11 +138,13 @@ return paths — not a worker who both searches and edits.
 Assemble the spec. Read **[references/prompt-spec.md](references/prompt-spec.md)** for the
 template and the worked example. Every brief carries, at minimum:
 
-- **Inputs** — exact file paths, the current wrong behaviour
+- **Task** — one sentence: the observable change
+- **Inputs** — exact file paths, the current wrong behaviour; for UI work, the **Page URL(s)**
 - **Audience** — what consumes this code and what contract it must keep
 - **Format** — the conventions of the file being edited
 - **Out of scope** — explicit "do NOT touch X, do NOT refactor Y, do NOT survey the repo"
 - **Knowledge** — "read `AGENTS.md` first, then only the files named above"
+- **Done means** — the checkable list step 5 judges against; no list, no dispatch
 - **Report** — per phase, **≤ 40 lines**. You read the diff yourself; the report is a map to it.
 - **Footer** — the phase line, verbatim, always (see below)
 
@@ -176,14 +182,14 @@ Yours alone. Read **[references/acceptance.md](references/acceptance.md)**.
 
 ```bash
 git status --porcelain                                     # every changed AND created file
-git ls-files --others --exclude-standard | while read -r f; do git add -N -- "$f"; done
-git diff --stat "$BASE"
-git diff "$BASE"                                           # large? --stat first, then per file
+<the snapshot command, from "Record the baseline">          # prints AFTER; record it too
+git diff --stat <BASE> <AFTER>
+git diff <BASE> <AFTER>                                    # large? --stat first, then per file
 ```
 
 Judge the diff against the spec *you wrote in step 3*. That is why the spec must be explicit
-up front — a vague brief cannot be checked. `git diff` alone misses files the sub-agent
-created; the intent-to-add line above is what makes them reviewable.
+up front — a vague brief cannot be checked. `git diff <BASE>` alone misses files the sub-agent
+created; diffing two snapshots includes them, whatever their names, without staging anything.
 
 - **Accept** → say what landed, move to verify.
 - **Reject** → re-dispatch with what was wrong and why. **Do not hand-fix it yourself** — that

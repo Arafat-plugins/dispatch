@@ -5,7 +5,7 @@
 Agents are per-repo. Never hardcode a name; look:
 
 ```bash
-ls .claude/agents/*.md 2>/dev/null && head -4 .claude/agents/*.md
+find .claude/agents -maxdepth 1 -name '*.md' -exec head -4 {} + 2>/dev/null
 ```
 
 The `description` line in each agent's frontmatter says what it is for. Match the task to a
@@ -39,7 +39,7 @@ any of the four), do not wait and do not skip the dispatch:
 1. Use a general-purpose sub-agent.
 2. Paste the template's body — everything below its frontmatter — at the top of the brief,
    under a `## Role` heading. Path: `.claude/agents/<name>.md` (installed) or
-   `$SKILL_DIR/agents/<name>.md` (bootstrap.md, Step 0).
+   `<SKILL_DIR>/agents/<name>.md` (the path bootstrap.md, Step 0, recorded in your plan).
 3. State the tool restriction in words inside the brief ("you have no browser; you are
    read-only; do not write files") — a general-purpose agent has every tool.
 4. The fallback inherits the session's effort — it cannot be set to `medium` per call. Note
@@ -84,6 +84,13 @@ queue?
 Proceed past 2 only on an explicit yes, and only for that plan — the cap applies again on the
 next dispatch.
 
+**Read-only agents need an idle tree.** The critic and the db-tester are checked by comparing
+`git status --porcelain` before and after they run (acceptance.md, "After the critic"). A worker
+editing the same working tree meanwhile changes that output, and the check can no longer tell
+whose change it was. So the second slot may hold one of them only while **no other agent is
+editing the same tree** — a worker in its own worktree does not count; queue the critic behind
+a worker that shares your tree.
+
 ## Model selection
 
 The **main session** sets the model per dispatch, on the Agent tool call — its `model`
@@ -103,9 +110,10 @@ choose `opus` and say why in the plan.
 in frontmatter — they exist for core and design work. The main session overrides *down* to
 `sonnet` on the Agent tool call for anything light (a copy fix, a renamed field, a config
 value). `dispatch-db-tester` and `dispatch-security-critic` stay `model: sonnet` — their job is
-bounded evidence-gathering, not a judgement call. `haiku` remains a legitimate further downgrade
-from `sonnet` for a trivial diff (copy, styles, a one-file change with no input handling) — set
-it per repo in the installed copy, not in the template.
+bounded evidence-gathering, not a judgement call. `haiku` is a legitimate further downgrade
+from `sonnet` for the critic on a trivial diff (copy, styles, a one-file change with no input
+handling) — **set it per call**, on the Agent tool's `model`, like every other choice here.
+Editing the installed file's `model:` line does nothing: the per-call `model` always wins.
 
 Nothing switches mid-task. The main session stays whatever the user is running.
 

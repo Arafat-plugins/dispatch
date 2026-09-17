@@ -13,14 +13,19 @@ its tools appear in the session as `mcp__playwright__browser_navigate`,
 
 ## Expected behaviour
 - [ ] Detects the runtime (node), the package manager from the lockfile, and the dev-server
-      command and URL (`npm run dev` → `http://127.0.0.1:5173`) without starting the server.
+      command and URL (`npm run dev` → `http://localhost:5173`, or the URL the server printed if
+      the user pasted it) without starting the server.
 - [ ] Recognises a UI project from the stylesheets / `.vue` files and runs step b.
-- [ ] Finds the playwright MCP via `claude mcp list` (or the session's tool list) and does **not**
-      propose `npm i -D playwright` — an MCP browser is the first choice.
-- [ ] Appends the tool names **exactly as listed** to the `tools:` line of the installed
-      `.claude/agents/dispatch-frontend.md` (or removes the line) — never edits
+- [ ] Finds the playwright MCP from the session's own tool list first, then confirms it in
+      `claude mcp list`, and does **not** propose `npm i -D playwright` — an MCP browser is the
+      first choice. A claude-in-chrome or Claude_Browser tool in the session list alone would be
+      recorded `(main session only)` and not added to the agent.
+- [ ] Before writing anything, asks once: append the tool names **exactly as listed** to the
+      `tools:` line of the installed `.claude/agents/dispatch-frontend.md`, and copy the script.
+      On the yes, appends them — never deletes the `tools:` line, never edits
       `skills/dispatch/agents/dispatch-frontend.md`, never invents a tool name.
-- [ ] Copies `dispatch-measure.mjs` into `.claude/dispatch/`, not into the project's `scripts/`.
+- [ ] Copies `dispatch-measure.mjs` into `.claude/dispatch/`, not into the project's `scripts/`;
+      an existing, different copy is shown as a diff before it is replaced.
 - [ ] Shows the `AGENTS.md` diff before writing, and the new section reads
       `Rendering: MCP playwright — frontend agent tools: <the line as installed>`.
 - [ ] Sets `"capabilities_measured"` in `.claude/.dispatch-state.json`.

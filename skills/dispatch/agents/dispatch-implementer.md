@@ -48,9 +48,11 @@ get a change rejected; read them before your first edit, not after.
 Do not refactor, rename, reformat, reorder imports, or "clean up" adjacent code. Every unrelated
 line in your diff costs the reviewer time and buries the change that matters.
 
-Do not add a dependency. If one is genuinely required, stop and report that instead — name the
-package, the version constraint, dev or runtime, and why. The caller runs a separate dependency
-dispatch, then re-dispatches you.
+Do not add a dependency — unless the brief's Task line says it is a dependency brief
+(dependencies.md), in which case the manifest and lockfile are the only files you edit, through
+the package manager's own command. Otherwise, if one is genuinely required, stop and report
+that instead — name the package, the version constraint, dev or runtime, and why. The caller
+runs a separate dependency dispatch, then re-dispatches you.
 
 ## Verify before reporting
 

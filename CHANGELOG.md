@@ -1,5 +1,121 @@
 # Changelog
 
+## 1.5.1 — 2026-09-17
+
+"Review fixes". An independent review of 1.5.0 found cross-file contradictions, shell/git/DB
+snippets that fail outside the author's shell, bugs in the measure script, a few unsafe steps
+and five design flaws; `validate.sh` passed on all of them. Each claim was re-checked before
+fixing (scratch repos, a linked worktree, non-ASCII names, a local Postgres 16, the script
+against a local page on both renderers). No renames; the footer line, the commands, the four
+agent names, `effort: medium`, model-by-weight, the 2-concurrent cap and the "read-only by
+instruction, checked by the main session" wording are unchanged.
+
+**Baseline and acceptance (git)**
+- BASE is **printed and pasted**, not kept in `BASE=$(…)`: the assignment shows nothing, and in
+  runtimes with a fresh shell per tool call the variable is gone by step 5 (`git diff ""`, exit
+  128 — reproduced). The session writes `BASE: <sha>` into its plan; SKILL_DIR the same way
+  (SKILL.md, acceptance.md, bootstrap.md, setup.md, routing.md).
+- The snapshot command takes its index path from `git rev-parse --path-format=absolute
+  --git-path`, so it works in a linked worktree (`.git` is a file — reproduced) and from a
+  subdirectory, and seeds the throwaway index from `HEAD` so tracked-but-ignored files are not
+  reported as deleted (found while testing).
+- `git add -N` is gone. Acceptance takes a second snapshot (AFTER) and reads
+  `git diff <BASE> <AFTER>`: created files included, any file name (the old loop failed on
+  `"caf\303\251.css"` — reproduced), the real index untouched, `git stash` unaffected (it failed
+  with intent-to-add entries — reproduced) (SKILL.md, acceptance.md, verifier.md, critic template).
+- Reverting a dispatch uses `git restore --source=<BASE> --worktree` (`git checkout <BASE> --`
+  also staged the files — reproduced); created files are listed with
+  `git diff --name-only --diff-filter=A` (failures.md).
+- Worktree review diffs the recorded START sha against an AFTER snapshot and lists the agent's
+  commits; `git diff HEAD` missed both (reproduced). Portable fallback: `git worktree add`.
+- A new project gets a root commit holding `PROJECT_BRIEF.md` (proposed, run on a yes) before
+  the scaffold dispatch, which is the one dispatch exempt from "no map, no dispatch"
+  (new-project.md, SKILL.md).
+
+**dispatch-measure.mjs**
+- Node Playwright only from `<repo>/node_modules`; a global or `NODE_PATH` install was used
+  while the status probe said "missing" (reproduced). `status` and `setup` now probe with the
+  script itself: `--probe` (same lookup, plus a chromium start).
+- `DISPATCH_PYTHON` wins when set and exits 3 if it cannot import playwright (it fell through
+  silently — reproduced); no bare `python3`/`python` fallback; chromium fix printed as
+  `"<py>" -m playwright install chromium` (reproduced the bare `playwright install`).
+- `--prop --brand` reads a custom property (was "needs a value" — reproduced); custom property
+  names keep their case.
+- A redirect exits 2 with the final URL: a 3xx before rendering, and a changed `page.url()` after
+  (a redirect to /login measured with exit 0 — reproduced, server and client-side).
+- A Python timeout exits 2 ("did not finish"), not 3 (unit-tested with a real spawn timeout).
+- Argument errors print one line ending "see --help" (printed 26 lines — reproduced). No `fetch`
+  → exit 1 "needs Node 18+" (was exit 2 "not reachable" — reproduced with
+  `--no-experimental-fetch`).
+- Output starts with `renderer: node playwright` / `renderer: python <path>`, the tool the
+  frontend agent reports.
+- Importing the script runs nothing; new `scripts/measure.test.mjs` (`node --test`, no
+  Playwright, no network).
+
+**Shell portability and database guards**
+- `ls name.*` globs replaced by `find -name` (zsh aborts on an unmatched glob), the `$X`
+  `--exclude-dir` list written inline (zsh does not word-split), `timeout` → `timeout` or
+  `gtimeout`, else the tool call's own limit (setup.md, bootstrap.md, status.md, routing.md).
+  **Not reproduced here (no zsh, and `timeout` exists); fixed for portability.**
+- Bootstrap Step 0 lists every skill copy with its version and takes the one matching this
+  release; an empty search no longer yields `SKILL_DIR=.` (reproduced), and an older plugin-cache
+  copy is not installed.
+- Vite/Next default URL is `http://localhost:<port>`, and setup records the URL the server
+  prints. `127.0.0.1` vs `::1` not reproduced here; fixed for portability.
+- `go version`, not `go --version` (reproduced).
+- The read-only DB user is called the **only** real guard; `--safe-updates`, session
+  `READ ONLY` and `PGOPTIONS` are seatbelts, put on **every** invocation — a one-off
+  `SET SESSION … READ ONLY` did not reach the next `psql -c`, and a read-write login switched
+  `default_transaction_read_only` off (both reproduced on Postgres 16; MySQL not available,
+  fixed by the same reasoning) (db-check.md, db-tester, README).
+- The Postgres grant check uses `has_table_privilege` plus role membership; the
+  `grantee = current_user` filter missed an inherited INSERT (reproduced).
+- MySQL credentials reach `--defaults-extra-file` through process substitution (the db-tester
+  has no Write tool); env files are loaded without echoing, in the same call as the query.
+
+**Briefs, acceptance and design rules**
+- SKILL.md's "every brief carries" adds **Task** and **Done means**; UI briefs carry a
+  **Page URL(s)** line, which acceptance and the frontend agent measure (`$URL` was undefined).
+- The implementer takes a brief whose Task line says `Dependency brief (dependencies.md):` —
+  manifest and lockfile only; before, a deps brief hit its own "do not add a dependency".
+- `haiku` for the critic is a per-call choice; the installed-copy advice is gone (the per-call
+  `model` always overrides it).
+- prompt-spec.md cites the "Surfaces" table bootstrap generates.
+- Acceptance's DESIGN.md check covers colours and breakpoints; spacing only when DESIGN.md lists
+  a scale, and only margin/padding/gap; no DESIGN.md → the check is waived. `border: 1px` is not
+  a finding.
+- The critic and the db-tester run only when no other agent is editing the same working tree
+  (routing.md, verifier.md, acceptance.md).
+- The Claude Code Edit tool needs a Read first: when-not-to-dispatch.md says to read only those
+  lines (`offset`/`limit`), with a portable fallback.
+
+**Setup and status**
+- Browser detection starts from the session's own tool list; `claude mcp list` shows configured
+  servers only (it listed none while this session held claude-in-chrome tools — reproduced).
+  Chrome and connector browsers are `(main session only)` by default.
+- Setup asks once before steps b and c write anything, shows the diff for an existing script
+  copy, and never deletes the frontend agent's `tools:` line (that would hand it every MCP tool).
+- The UI-project test lives in setup.md only; status.md runs the same test. The Rendering record
+  lists `(main session only)` and `n/a (no UI)`. "A user AGENTS.md already names as read-only"
+  replaces a reference to a table that does not exist.
+- status reports an agent file the runtime has not loaded ("restart or /agents"), else one newer
+  than the state file; the "newer than the session" test is gone. Rendering ❌ prints the fix for
+  the right ecosystem, from `--probe`.
+- dependencies.md no longer claims `status` reports vulnerable versions.
+
+**Repo**
+- `scripts/validate.sh`: prints `ok` only when a check passed and says so in its header; the
+  footer check now finds every fenced `## Task` / `## Role` brief; `model:`/`effort:` checked in
+  the frontmatter only; version consistency adds bootstrap Step 0, status.md and
+  evals/foreign-agents-md.md; new checks for Task/Done means, Page URL, no `git add -N` or
+  shell-variable BASE, worktree-safe index path, no `ls` globs, the deps-brief exception,
+  PGOPTIONS/`--init-command`, `has_table_privilege`, every eval listed in the README, and
+  `node --test scripts/measure.test.mjs`. Minimum version 1.5.1.
+- `evals/`: base sha printed, critic waits for an idle tree, px not rejected without DESIGN.md,
+  UI brief has a page URL; existing scenarios updated (`git add -N`, `$BASE`, "Rule C",
+  version 1.1.0, the DB seatbelts, the MCP detection order).
+- `README.md`: DB guards, script resolution, brief fields.
+
 ## 1.5.0 — 2026-09-17
 
 "Capabilities". 1.4.0 assumed tooling it never provisioned: a frontend agent that could not see,

@@ -20,18 +20,29 @@ the survey's context cost should not land on the main session.
 
 ## Step 0 — find the skill directory
 
-Templates are copied from the skill's own `agents/` directory. If the runtime told you where
-this `SKILL.md` was loaded from, use that. Otherwise:
+Templates are copied from the skill's own `agents/` directory. **If the runtime told you where
+this `SKILL.md` was loaded from, use that** — it is the copy you are running. Otherwise list
+every candidate with its version:
 
 ```bash
-for d in .claude/skills/dispatch ~/.claude/skills/dispatch .agents/skills/dispatch ~/.agents/skills/dispatch; do
-  [ -f "$d/agents/dispatch-implementer.md" ] && SKILL_DIR="$d" && break
-done
-[ -n "$SKILL_DIR" ] || SKILL_DIR=$(dirname "$(dirname "$(find . ~/.claude ~/.agents -path '*/dispatch/agents/dispatch-implementer.md' -print -quit 2>/dev/null)")")
-echo "$SKILL_DIR"
+{ for d in .claude/skills/dispatch ~/.claude/skills/dispatch .agents/skills/dispatch ~/.agents/skills/dispatch; do
+    [ -f "$d/agents/dispatch-implementer.md" ] && echo "$d/agents/dispatch-implementer.md"
+  done
+  find . ~/.claude ~/.agents -path '*/dispatch/agents/dispatch-implementer.md' 2>/dev/null
+} | while IFS= read -r f; do
+  d=$(dirname "$(dirname "$f")")
+  printf '%s\t%s\n' "$(sed -nE 's/^  version: *//p' "$d/SKILL.md" 2>/dev/null | head -1)" "$d"
+done | sort -u
 ```
 
-Empty result: say so and stop. Do not reconstruct templates from memory.
+Take the first line whose version equals this `SKILL.md`'s `metadata.version` (`1.5.1`) — a
+plugin cache can hold older copies, and a stale template installs stale rules. The directory
+is only ever taken from a line that printed; nothing printed, or no line with this version →
+say so and stop. Do not reconstruct templates from memory, and do not fall back to `.`.
+
+Write the chosen path into your plan as `SKILL_DIR: <path>` and paste it wherever a later
+command says `<SKILL_DIR>` — like BASE (acceptance.md), a shell variable does not reliably
+survive to the next tool call.
 
 ## Step 1 — survey
 
@@ -166,11 +177,12 @@ names only — no file bodies:
   ```
 - **WordPress** — the theme's template-hierarchy files, plus registered REST routes:
   ```bash
-  ls <theme>/{index,front-page,home,single*,page*,archive*,category*,taxonomy*,search,404}.php <theme>/templates/*.html 2>/dev/null
+  find <theme> -maxdepth 1 -name '*.php' | grep -E '/(index|front-page|home|single.*|page.*|archive.*|category.*|taxonomy.*|search|404)\.php$'
+  find <theme>/templates -maxdepth 1 -name '*.html' 2>/dev/null
   grep -rnoE "register_rest_route\(\s*['\"][^'\"]+['\"]\s*,\s*['\"][^'\"]+" --include='*.php' --exclude-dir=vendor --exclude-dir=node_modules . | head -60
   ```
-- **Plain PHP / static** — one row per entry file in the web root (`ls public/*.php public/*.html`,
-  or the root itself).
+- **Plain PHP / static** — one row per entry file in the web root
+  (`find public -maxdepth 1 \( -name '*.php' -o -name '*.html' \)`, or the root itself).
 
 **Cap it at ~60 rows.** Beyond that, group by prefix — one row `/admin/* (42 routes)` whose
 cells say `see app/Http/Controllers/Admin/` — so the map stays a map. The Styles column names
@@ -184,10 +196,16 @@ you ran the suite and counted zero.** A baseline that was never measured is wors
 the next agent trusts it.
 
 ```bash
+command -v timeout || command -v gtimeout                    # which time limiter exists
 timeout 120 <lint command>  > /tmp/dispatch-lint.txt 2>&1; echo "lint exit $?"
 timeout 600 <test command>  > /tmp/dispatch-test.txt 2>&1; echo "test exit $?"
 grep -ciE '(FAIL|ERROR|✗)' /tmp/dispatch-test.txt          # count, not the output
 ```
+
+Stock macOS has no `timeout`; with coreutils from Homebrew it is `gtimeout` — use whichever
+the first line printed. Neither → drop the prefix and give the tool call its own limit instead
+(Claude Code: the Bash tool's `timeout` parameter, at most 10 minutes; elsewhere, the runtime's
+equivalent), and record a limit hit as `not measured — timed out`.
 
 Read only the failure names out of the log (`grep -E 'FAIL' | head -40`), not the log.
 Record, in that section:
@@ -218,17 +236,18 @@ after the copy.
 Read what the repo already has before copying anything:
 
 ```bash
-ls .claude/agents/*.md 2>/dev/null && head -4 .claude/agents/*.md
+find .claude/agents -maxdepth 1 -name '*.md' -exec head -4 {} + 2>/dev/null
 ```
 
-Then install **only the templates whose role is not already covered.** Match by role, not by
+(`find`, not an `ls` glob: in zsh an unmatched glob aborts the whole command with "no matches
+found".) Then install **only the templates whose role is not already covered.** Match by role, not by
 filename — a repo with its own `acme-frontend` agent does not need `dispatch-frontend`, even
 though the names differ. Purpose-built agents carry conventions the generic templates cannot,
 and a second agent covering the same ground just makes routing ambiguous.
 
 ```bash
 mkdir -p .claude/agents
-cp "$SKILL_DIR"/agents/<template>.md .claude/agents/     # per template you decided to install
+cp "<SKILL_DIR>/agents/<template>.md" .claude/agents/     # per template you decided to install
 ```
 
 **Effort.** Every template carries `effort: medium`. Keep that line in the installed copy; for a
@@ -239,9 +258,10 @@ repo's own agents that lack an `effort:` line, suggest adding `effort: medium` (
 agent is weak, say so to the user and let them decide — do not silently replace their work.
 
 **Browser tools for the frontend agent.** The template's `tools:` line has no browser. If Step
-2c found a browser MCP, append its tool names — exactly as the session lists them — to the
-`tools:` line of the *installed copy*, or delete the line so the agent inherits every tool
-(setup.md, step b). *Verification capabilities* records which, so acceptance knows whether
+2c found a browser MCP the sub-agent can reach and the user said yes, append its browser tool
+names — exactly as the session lists them — to the `tools:` line of the *installed copy*
+(setup.md, step b). Never delete the line: the agent would inherit every tool, write-capable
+MCP servers included. *Verification capabilities* records which, so acceptance knows whether
 "verified at 375px" was rendered or read.
 
 **Hot-loading.** Claude Code reads `.claude/agents/` at session start. Files installed now may
@@ -270,7 +290,7 @@ If `CLAUDE.md` does not exist, do not create one. `AGENTS.md` is enough.
   "agents_map": "AGENTS.md",
   "baseline_measured": "<ISO date, or null>",
   "capabilities_measured": "<ISO date, or null>",
-  "version": "1.5.0"
+  "version": "1.5.1"
 }
 ```
 
