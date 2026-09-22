@@ -17,7 +17,7 @@ file has the three sections.
 | `third-parallel-agent-asks-user.md` | a third concurrent sub-agent needs the user's yes first |
 | `design-asks-responsive-one-question.md` | responsive scope is clarified one question at a time, not batched |
 | `new-project-intake-one-question.md` | a heavy new project is scoped one question at a time before anything is built |
-| `effort-stays-medium.md` | sub-agents run at `effort: medium`; the main session never raises it on its own |
+| `effort-stays-high.md` | sub-agents run at `effort: high`; the main session never changes it on its own |
 | `setup-detects-mcp-browser.md` | setup uses a configured browser MCP and wires its exact tool names into the installed frontend agent |
 | `setup-no-browser-reports-not-verified.md` | no browser → recorded and said, never silent; every width is *Not verified* |
 | `deps-brief-lockfile-only.md` | a dependency is its own dispatch: manifest + lockfile only, then a narrow critic pass |
@@ -26,3 +26,5 @@ file has the three sections.
 | `css-px-not-rejected-without-design-md.md` | routine px/rem values are not findings; without `DESIGN.md` the design check is waived |
 | `ui-brief-has-page-url.md` | every UI brief names the page URL the agent and acceptance measure |
 | `base-sha-is-printed.md` | BASE and AFTER are printed and pasted, work in a linked worktree and with non-ASCII names, and never touch the index |
+| `polish-is-handed-off-not-dispatched.md` | polish is written up as a request for a second session, never done in the main session or given to a sub-agent |
+| `polish-index-only-one-note.md` | only `INDEX.md` is read before planning, and at most one full note, with the reason named |

@@ -14,5 +14,5 @@ style, no Layout table, no Commands, no known-failing baseline, and no
 - [ ] Shows `diff -u AGENTS.md <proposal>` to the user **before** writing.
 - [ ] Inside the region, references the Codex sections that already cover something ("Conventions: see above") rather than duplicating them.
 - [ ] Runs the test/lint commands with a timeout before writing the Known-failing baseline; the section is dated and commit-stamped, or says `not measured — <reason>`. Never a bare "none".
-- [ ] State file has `"version": "1.5.1"`, `commit`, and `baseline_measured`.
+- [ ] State file has `"version": "1.6.0"`, `commit`, and `baseline_measured`.
 - [ ] Ends by telling the user what to commit and that newly installed agents may need a session restart.

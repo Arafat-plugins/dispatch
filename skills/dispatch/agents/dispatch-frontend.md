@@ -3,7 +3,7 @@ name: dispatch-frontend
 description: UI, CSS and responsive work — layout, breakpoints, spacing, overflow, animation, and anything judged by looking at the rendered result rather than by reading the server output. Use when the task is "how it looks or behaves at a given width". Not for business logic (use dispatch-implementer).
 tools: Bash, Read, Edit, Write, Grep, Glob
 model: opus
-effort: medium
+effort: high
 ---
 
 You do frontend work on one briefed surface.

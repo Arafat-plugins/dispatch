@@ -41,6 +41,7 @@ at all, in `references/when-not-to-dispatch.md`.)
 /dispatch <task>             # plan → locate → brief → work → accept
 /dispatch deps <add|remove|update> <package>   # a dependency change as its own dispatch
 /dispatch verify             # security critic pass over the current diff
+/dispatch polish [<NNN>]     # run this in a SECOND session — it works the rough edges with you
 /dispatch db <check>         # read-only database inspection
 /dispatch status             # what's set up, what's missing
 ```
@@ -51,7 +52,8 @@ you. An `AGENTS.md` written for another tool is left intact; bootstrap appends a
 dispatch section (`<!-- dispatch:map v1 -->`) and shows you the diff first.
 
 **Then commit what bootstrap wrote** — `AGENTS.md`, `.claude/agents/dispatch-*.md`,
-`.claude/.dispatch-state.json`, `.claude/dispatch/dispatch-measure.mjs`, and `DESIGN.md` plus
+`.claude/.dispatch-state.json`, `.claude/dispatch/dispatch-measure.mjs`,
+`.claude/dispatch/polish/INDEX.md`, and `DESIGN.md` plus
 any dev dependency setup added — before the first dispatch, so they do not land in every
 acceptance diff. Agents installed mid-session may need a restart (or `/agents`) to load;
 until then the skill falls back to a general-purpose sub-agent carrying the template body.
@@ -67,10 +69,14 @@ Generic agent templates in `.claude/agents/`, skipped if a file of that name alr
 
 | Agent | Model | Effort | Role |
 | --- | --- | --- | --- |
-| `dispatch-implementer` | opus | medium | Server logic, APIs, data access — core-level implementation |
-| `dispatch-frontend` | opus | medium | CSS, layout, responsive — design work |
-| `dispatch-db-tester` | sonnet | medium | Database inspection — read-only by instruction, plus engine-level guards |
-| `dispatch-security-critic` | sonnet (haiku per call for trivial diffs) | medium | Critic only — never edits |
+| `dispatch-implementer` | opus | high | Server logic, APIs, data access — core-level implementation |
+| `dispatch-frontend` | opus | high | CSS, layout, responsive — design work |
+| `dispatch-db-tester` | sonnet | high | Database inspection — read-only by instruction, plus engine-level guards |
+| `dispatch-security-critic` | opus (always, whatever the diff size) | high | Critic only — never edits |
+
+Bootstrap also creates `.claude/dispatch/polish/` and `.claude/dispatch/polish/requests/` with a
+seeded empty `INDEX.md` — the polish session's ledger, and the only polish file the main session
+ever reads (below).
 
 Plus what bootstrap's capabilities step (`/dispatch setup`) provisions — each install proposed
 first and run only on your yes, always into the repo, never globally:
@@ -84,8 +90,9 @@ first and run only on your yes, always into the repo, never globally:
 | *Verification capabilities* | a section in `AGENTS.md` | What this repo can check with; `status` reports each line |
 
 The main session overrides the model per dispatch, on the Agent tool call — `sonnet` for light
-work even on the two `opus`-default agents (a copy fix, a renamed field), `opus` for anything
-the brief calls design or core-level (routing.md, "Model selection").
+work even on the `opus`-default implementer and frontend agents (a copy fix, a renamed field),
+`opus` for anything the brief calls design or core-level. The security critic is never
+overridden down: it runs on `opus` however small the diff (routing.md, "Model selection").
 
 If your repo already has purpose-built agents, routing prefers them. They know your conventions;
 these templates do not.
@@ -155,10 +162,11 @@ stops the loop and escalates to you with a summary. Reports are capped at 40 lin
 diffs are read `--stat` first, then per file — an oversize diff is itself a finding.
 
 **Model by task weight.** The main session sets the model explicitly on every dispatch —
-`sonnet` for light work, `opus` for design or core-level implementation — and says why
-(routing.md).
+`sonnet` for simple text-level work, `opus` for design and core-level implementation — and says
+why. The security critic is the one exception to the weight rule: **always `opus`**, however
+small the diff (routing.md).
 
-**Effort is medium.** Every sub-agent template sets `effort: medium` in its frontmatter — the
+**Effort is high.** Every sub-agent template sets `effort: high` in its frontmatter — the
 Agent tool cannot set effort per call. Only the user changes it (routing.md).
 
 **At most 2 sub-agents at once.** Every kind counts toward the cap. A plan that needs more asks
@@ -167,6 +175,19 @@ the user first, with the job, the reason, and the cost (routing.md).
 **Responsive is not optional.** Any task that designs or changes UI always includes responsive
 behaviour in scope, clarified one question at a time before briefing, and checked at
 mobile/tablet/desktop at acceptance (references/responsive.md).
+
+**Polish runs in a second session.** After a change is accepted there is usually light polish
+left, and doing the build and the polish in one session fills that session with detail it does
+not need. So the main session writes a request under
+`.claude/dispatch/polish/requests/<NNN>-<slug>.md`, prints the command, and you open a second
+terminal in the same repo and run `/dispatch polish <NNN>` at high effort on opus. That session
+is a worker, not a dispatcher: it reads and edits files with you directly, takes the same
+baseline, shows you the diff, and when you say it is done writes one note plus **one index
+entry** — a title, a summary of at most two lines, and a `touches:` line of at most five paths
+or surfaces. The main session reads only `.claude/dispatch/polish/INDEX.md` (a bounded recent
+window once it is long), and opens a single full note only when a line names something the
+current brief touches. A correction with one right answer — a typo, a wrong constant — stays a
+direct edit; a judgement call you have to see to approve is polish (references/polish.md).
 
 **New heavy projects get an intake first.** Building from scratch, an empty repo, or a new large
 subsystem is gathered from the user one question at a time — never batched — before anything is
@@ -205,6 +226,7 @@ skills/dispatch/
     responsive.md             responsive clarification questions and acceptance widths
     new-project.md            heavy new project intake, one question at a time, PROJECT_BRIEF.md
     verifier.md               the security critic chain
+    polish.md                 the second session: the index-only reading rule, the handoff, the note
     bootstrap.md              building AGENTS.md, the Surfaces table, measuring the baseline, what to commit
     setup.md                  verification capabilities — dev server, browser, DESIGN.md, read-only DB user
     dependencies.md           the deps brief, its acceptance, and the narrow critic pass

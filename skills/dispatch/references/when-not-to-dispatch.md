@@ -13,6 +13,15 @@ more than the edit. The rule is narrow on purpose; the default stays **dispatch*
   then the runtime's edit tool. Never the whole file.
 - **No judgement about surrounding code** is needed: a typo, a wrong constant, a one-line
   config value, a version string, a label.
+- **It is a correction, not a judgement call** — see below.
+
+**Correction or judgement call?** A correction has one right answer you already hold: `recieve`
+→ `receive`, `1.5.1` → `1.6.0`, a mislabelled field. Do it directly. A judgement call has no
+stated target and is settled by looking — "the copy reads badly", "the spacing is almost right",
+"this label feels wrong". That is **polish**, whatever its line count: it goes to the second
+session ([polish.md](polish.md#handing-off--the-main-session-never-polishes)), because getting
+it right means iterating with the user on the thing in front of them, and doing that here is
+exactly the context fill this skill avoids. If the user has to see it to say yes, it is polish.
 
 Still take the baseline, still run the repo's lint/test from `AGENTS.md`, still report
 `Verified` / `Not verified`. Skipping the dispatch does not skip acceptance.

@@ -21,6 +21,30 @@ reset too, you may also store it: `git rev-parse HEAD > "$(git rev-parse --path-
 test -z "$(git status --porcelain)" && git rev-parse HEAD      # prints BASE
 ```
 
+**Record BASE_HEAD at the same time** — one cheap command, checked at step 5:
+
+```bash
+git rev-parse HEAD                                             # prints BASE_HEAD — the commit BASE sits on
+```
+
+On a clean tree BASE_HEAD is the same sha as BASE; after the snapshot command below it is not,
+because that BASE is a *tree*. **A tree sha does not fail there** — `git log <tree>..HEAD`
+resolves the tree-ish and exits **0** having printed the repo's **entire history**, which reads
+as "the sub-agent committed all of these". So write both into your plan, keep them apart, and
+use the `^{commit}` form in "What the diff cannot see", which rejects a tree outright.
+
+**The ignored-file baseline**, the second thing step 5 needs. Take it once BASE is printed, into
+a file named after BASE so two dispatches in flight cannot overwrite each other's:
+
+```bash
+git -c core.quotePath=false ls-files --others --ignored --exclude-standard \
+  > "$(git rev-parse --path-format=absolute --git-path dispatch-ignored-<BASE>)"
+```
+
+Paste the literal BASE sha for `<BASE>`. `--git-path` keeps the file inside the git directory —
+never a stray path in the tree, and a linked worktree gets its own copy. **In a worktree**, put
+`git -C <worktree-path>` on both `git` calls in that line.
+
 **Dirty tree the user wants to keep — the snapshot command.** Records the working tree,
 untracked files included, as a tree object. It builds a throwaway index seeded from `HEAD`
 (so tracked files that `.gitignore` now matches are not dropped), so the real index is never
@@ -33,8 +57,13 @@ worktree too, where `.git` is a file:
 
 It prints the tree sha: that is BASE. `git diff <BASE> <AFTER>` then shows only what changed
 after it. A later dispatch takes a fresh one. Git older than 2.31 has no `--path-format`: run
-the command from the repo root without that flag. No commit yet (`git rev-parse HEAD` fails in
-an empty repo) → make the root commit first, as **[new-project.md](new-project.md)** does.
+the command from the repo root without that flag.
+
+**Read the printed sha, not the exit status.** In a repo with no commit `git read-tree HEAD`
+fails, the `&&` chain stops, and the subshell still ends on `rm -f` — so the command exits **0**
+having printed no sha at all (only `fatal: Not a valid object name HEAD` on stderr). **No sha
+printed is the failure**; an exit 0 here is not a snapshot. Make the root commit first, as
+**[new-project.md](new-project.md)** does, then re-run.
 
 **Worktree isolation** — for parallel dispatches, or any dispatch whose blast radius you are
 unsure of. In Claude Code, pass `isolation: "worktree"` to the Agent tool: the sub-agent works
@@ -50,6 +79,10 @@ git -C <worktree-path> status --porcelain
 git -C <worktree-path> diff --stat <START> <AFTER>        # edits, created files and any commits
 git -C <worktree-path> log --oneline <START>..HEAD        # commits it made — briefs forbid them
 ```
+
+Take the ignored-file baseline in the worktree too, before the dispatch, and check it after —
+the `git -C <worktree-path>` form both commands give above. A worktree has its own git
+directory, so `--git-path` keeps that baseline separate from the shared tree's on its own.
 
 `git diff HEAD` in the worktree is not enough: it misses untracked files and anything the
 agent committed on its branch.
@@ -84,6 +117,59 @@ git diff <BASE> <AFTER> -- <path>                       # then: one file at a ti
 
 An oversize diff is itself a finding — the brief was too broad, or the agent went exploring.
 Say so in the verdict; do not read 2,000 lines to find out whether the task got done.
+
+## What the diff cannot see
+
+`git diff <BASE> <AFTER>` compares two trees. Two things happen outside those trees, and both
+are checked with one command each, on the shared (non-worktree) tree as well as in a worktree.
+
+**Commits.** A sub-agent that runs `git commit` moves `HEAD`. Its content still shows in
+`git diff <BASE> <AFTER>` — the snapshot reads `HEAD` first — but the repo's history changed
+under you, and `git restore --source=<BASE>` (failures.md) will not put it back:
+
+```bash
+git log --oneline <BASE_HEAD>^{commit}..HEAD            # must print nothing
+git diff --stat <BASE_HEAD>^{commit} HEAD               # if it did commit: the shape of what it committed
+```
+
+**Sub-agents do not commit** — every brief says so. A line from that `git log` is not a
+bookkeeping detail: the commit is part of the change you are judging, so read it with the rest
+of the diff, and **report it to the user by sha and subject** in the verdict, whether you accept
+or reject the work. `<BASE_HEAD>` is the commit sha recorded next to BASE. **`^{commit}` is the
+guard**, not decoration: paste BASE (a tree) there by mistake and git stops with
+`expected commit type, but the object dereferences to tree type` and exit 128 — without it, the
+same mistake prints every commit in the repo and exits 0.
+
+**Ignored paths.** `dist/`, `node_modules/`, a `.env`, a dumped key: `.gitignore` hides them
+from `git status` and from the diff, so an agent can write them and pass acceptance in silence.
+Compare against the baseline taken before the dispatch:
+
+```bash
+git -c core.quotePath=false ls-files --others --ignored --exclude-standard \
+  | diff "$(git rev-parse --path-format=absolute --git-path dispatch-ignored-<BASE>)" - \
+  | awk '/^>/{sub(/^> ?/,""); print; n++} END{exit n?1:0}'
+```
+
+Each line printed is a path created since BASE. **Exit 0 with no output is the pass**; exit 1
+means at least one ignored path was written. The `awk` is what makes the status match the
+verdict — ending the pipeline on `grep '^>'` instead inverts it, exit 1 on the clean case and 0
+when files leaked, so a runtime that surfaces non-zero flags every good acceptance. **In a
+worktree**, put `git -C <worktree-path>` on both `git` calls.
+
+Judge each one:
+
+- **Build output** under a path `AGENTS.md` names as generated, from a build the brief asked
+  for (`dist/app.js`, a cache, a compiled asset) — expected. Note it in the verdict, one line,
+  and do not commit it.
+- **A new dotfile, an `.env`, a key, a dump, a credential file, or anything the brief did not
+  ask for** — **rejection**, and tell the user the path before anything else. An agent writing
+  where nothing is watching is the finding, whatever the file contains; do not open it to
+  decide.
+
+**`git clean -nxd` is not a substitute.** It prints a different set, wrong in both directions: a
+wholly-untracked directory collapses to one entry (`Would remove dist/` — `dist/new.js` never
+appears), and it lists untracked files that are *not* ignored, which the baseline diff excludes.
+Use it to eyeball a tree, never in place of the command above.
 
 ## The check
 
@@ -180,7 +266,9 @@ script is plain Node 18+; any runtime with a shell runs it the same way.
 
 ## The verdict
 
-**Accept** — say plainly what landed, then move to verify.
+**Accept** — say plainly what landed, then move to verify. Polish left over after an accepted
+change is not another dispatch and not yours: write the request and hand it to the second
+session — **[polish.md](polish.md)**.
 
 **Reject** — re-dispatch. The rejection brief carries:
 - the original brief, unchanged

@@ -3,7 +3,7 @@ name: dispatch-implementer
 description: Implements a precisely-briefed code change — server logic, APIs, data access, business rules, wiring. Use when the brief names exact files and a checkable target behaviour. Not for open-ended investigation, not for pure look-and-feel work (use dispatch-frontend), not for reviewing (use dispatch-security-critic).
 tools: Bash, Read, Edit, Write, Grep, Glob
 model: opus
-effort: medium
+effort: high
 ---
 
 You implement one briefed change. The brief is authoritative.

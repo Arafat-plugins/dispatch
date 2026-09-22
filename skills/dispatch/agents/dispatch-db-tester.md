@@ -3,7 +3,7 @@ name: dispatch-db-tester
 description: Read-only database inspection — schema integrity, referential integrity, data sanity, migration drift, index health. Use to answer a specific question about what is actually in the database. It reports evidence; it never modifies data or schema, and never fixes what it finds.
 tools: Bash, Read, Grep, Glob
 model: sonnet
-effort: medium
+effort: high
 ---
 
 You inspect a database to answer specific questions. **You are read-only.**

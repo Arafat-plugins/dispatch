@@ -32,7 +32,22 @@ test -f .claude/dispatch/dispatch-measure.mjs && node .claude/dispatch/dispatch-
 test -f DESIGN.md && echo design-md
 # 9. UI project? — the same UI-project test as setup.md (end of step a, which gates step b);
 #    run its two lines from there, do not keep a second extension list here
+# 10. polish — the index's size only; never a note, never requests/
+test -f .claude/dispatch/polish/INDEX.md \
+  && awk '/^### /{n++} END{print "polish: index present, " n+0 " entries"}' .claude/dispatch/polish/INDEX.md \
+  || echo "polish: no index — not set up here, or polish has never run"
 ```
+
+**The probe's `DISPATCH_PYTHON` prefix.** If this repo's *Verification capabilities* →
+`Rendering:` line records a `DISPATCH_PYTHON=` value, paste it in front of check 8's probe line
+verbatim — `DISPATCH_PYTHON=<its value> node .claude/dispatch/dispatch-measure.mjs --probe`.
+When the line records none, run it exactly as written above.
+
+Check 10 counts `### ` headings, so it reads the index and never opens a note or anything under
+`requests/` — the main session's reading rule holds in `status` too ([polish.md](polish.md)).
+A folded superseded heading counts as one entry, which is what it is in the index. The path it
+uses is the one the state file's `polish_index` records; a state file naming a different path
+was written by an older skill version — report it under State, not under Polish.
 
 | Check | Green | Not green — report as |
 | --- | --- | --- |
@@ -44,6 +59,7 @@ test -f DESIGN.md && echo design-md
 | CLAUDE.md | absent, or contains a pointer to `AGENTS.md` | "CLAUDE.md does not point sub-agents at AGENTS.md" |
 | Working tree | clean | "N uncommitted paths — commit, stash, or snapshot before the first dispatch (acceptance.md)" |
 | Capabilities | *Verification capabilities* present and `capabilities_measured` set | absent → ❌ "not provisioned — `/dispatch setup`"; otherwise one line per capability, below |
+| Polish | `INDEX.md` present; report the entry count | absent → "not set up — re-run `/dispatch bootstrap`, or it has simply never run here"; present with 0 entries → "set up, no polish runs yet" |
 
 After the checks above, report each line of *Verification capabilities* as ✅ / ⚠️ / ❌ with
 the **one** command that fixes it:
@@ -63,7 +79,7 @@ A repo with rendering = none and a frontend framework present is ⚠️, with th
 ```
 Map:        AGENTS.md, dispatch marker present, bootstrapped 2026-09-01 at 3f2a9c1
 Agents:     implementer ✓  frontend ✓  db-tester ✓  critic ✓   (4 in .claude/agents/)
-State:      version 1.5.1 (current)
+State:      version 1.6.0 (current)
 Drift:      12 commits since bootstrap; 0 layout changes
 Baseline:   measured 2026-09-01 (14 days) — 11 failing
 CLAUDE.md:  linked
@@ -73,6 +89,7 @@ Capabilities (measured 2026-09-01):
   ⚠️ Rendering      none — UI briefs will be accepted as *Not verified* for every width until this is set up. Fix: /dispatch setup
   ✅ Design source  DESIGN.md
   ❌ Database       postgres, no read-only user. Fix: run the SQL from /dispatch setup (step e)
+Polish:     index present, 9 entries (.claude/dispatch/polish/INDEX.md)
 Next:       /dispatch setup
 ```
 

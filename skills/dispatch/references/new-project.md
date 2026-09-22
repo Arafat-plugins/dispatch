@@ -23,11 +23,18 @@ None of these hold → this is a normal dispatch. Plan from `AGENTS.md` as usual
 
 Before you write anything, gather enough to plan. In Claude Code, use `AskUserQuestion` with
 **a single question per call**, 2-4 concrete options — the user can always type their own
-answer, and "you decide" is a legitimate option where sensible. Wait for the answer, then ask
-the next. **Never batch** — same rule as [responsive.md](responsive.md).
+answer, and "you decide" is a legitimate option where sensible. Where that tool does not exist,
+ask in plain text, one question per message, same discipline. Wait for the answer, then ask the
+next. **Never batch** — same rule as [responsive.md](responsive.md).
 
 Skip anything the user already said unprompted. **Stop as soon as you have enough to plan** —
 this is intake, not an interrogation; most projects need fewer than all ten questions.
+
+**The 8-question ceiling applies here too, and it counts across paths.** The ten below, plus
+responsive.md's five and setup.md step d's three, is roughly twenty messages before anything is
+built. At most **8 questions total** for the whole task; on reaching it, state the remaining
+unknowns with a proposed default for each and proceed on one confirmation. The rule and the
+wording of that message are in [responsive.md](responsive.md#the-question-ceiling--at-most-8-across-every-path).
 
 Suggested order:
 
