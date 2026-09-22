@@ -8,7 +8,18 @@ careless credential away from a write.
 Run it alone whenever `status` reports a capability ❌ or ⚠️. It needs the dispatch markers in
 `AGENTS.md` — no marker, offer `bootstrap` first (bootstrap runs setup).
 
+**Run alone, resolve `<SKILL_DIR>` first.** Step c copies the measure script out of the skill's
+own directory — the only step that reads from it — and nothing has printed its path yet. Run **[bootstrap.md](bootstrap.md)**'s Step 0
+search now, take the directory from a line that printed whose version matches this `SKILL.md`,
+and write it into your plan as `SKILL_DIR: <path>` — exactly as bootstrap does. Nothing printed
+→ say so and stop; do not guess a path and do not fall back to `.`.
+
 ## The cycle, per step
+
+**Order: a, b, c, d, e, f — with one detour inside b.** Step b's first branch (a browser MCP
+already in your tool list) needs nothing from step c. Its second branch probes Playwright by
+running the *installed* measure script, which step c is what installs — so when you reach that
+branch, do step c's copy, then come back to b and probe. Everything else runs in order.
 
 Every step below is **detect → propose → install → record**:
 
@@ -102,12 +113,24 @@ in it, and sub-agents often cannot reach those tools at all.
 - Record `Rendering: MCP <name>` (or `MCP <name> (main session only)`) and the tools line as
   installed.
 
-**2. Else, Playwright in the repo.** Already there? Ask the script itself, from the repo root —
-the same lookup every later measurement uses, so the probe and the run cannot disagree:
+**2. Else, Playwright in the repo.** Already there? Ask the script itself — **the installed copy
+at `.claude/dispatch/`, from the repo root**, so the probe is the same file in the same
+directory with the same environment as every later measurement, and the two cannot disagree:
 
 ```bash
-node "<SKILL_DIR>/scripts/dispatch-measure.mjs" --probe    # <SKILL_DIR>: the path bootstrap.md Step 0 printed
+node .claude/dispatch/dispatch-measure.mjs --probe
 ```
+
+**If this repo's *Verification capabilities* → `Rendering:` line records a `DISPATCH_PYTHON=`
+value**, paste it in front of that line verbatim — `DISPATCH_PYTHON=<its value> node
+.claude/dispatch/dispatch-measure.mjs --probe`. The line records none on a first run, or on any
+repo whose Playwright is a Node one: then run the command exactly as it stands.
+
+Not copied yet (the copy is **step c**) → do step c's copy now, then come back and probe, as the
+order note above says. **Never probe
+`<SKILL_DIR>/scripts/dispatch-measure.mjs`.** The script takes `PLAYWRIGHT_BROWSERS_PATH` from a
+`browsers/` directory **beside itself**, so from the skill directory it cannot see the chromium
+in `.claude/dispatch/browsers/` that the run uses — it reports a browser missing that works.
 
 `renderer: …` and exit 0 → skip to the smoke run below. The lookup is `$DISPATCH_PYTHON` if
 set, else Node `playwright` in `./node_modules` only, else Python `playwright` in `.venv` or
@@ -192,19 +215,23 @@ grep -rhoE --exclude-dir=node_modules --exclude-dir=vendor --exclude-dir=dist --
   --include='*.css' --include='*.scss' -e '--[a-zA-Z0-9-]+:' . | sort | uniq -c | sort -rn | head -40
 grep -rhoE --exclude-dir=node_modules --exclude-dir=vendor --exclude-dir=dist --exclude-dir=build \
   --include='*.css' --include='*.scss' -e '@media[^{]+' . | sort | uniq -c | sort -rn | head -20
-grep -oE '"[@a-z0-9/-]*(design|ui|theme|tokens)[a-z0-9-]*"' package.json 2>/dev/null    # a design-system package
+grep -oE '"[@a-z0-9/-]*(design|theme|tokens)[a-z0-9-]*"|"([@a-z0-9/-]*[@/-])?ui[a-z0-9/-]*"' package.json 2>/dev/null   # a design-system package
 find design docs -maxdepth 2 -path '*design*' -type f 2>/dev/null | head -20              # reference images
 ```
 
 The `--exclude-dir` flags are written out on purpose: an unquoted `$X` holding them is one
-argument in zsh, which does not word-split.
+argument in zsh, which does not word-split. `ui` is anchored to a package-name boundary
+(`@`, `/`, `-`, or the start of the name) on purpose too: unanchored it matches the substring
+inside `"build"`, `"prebuild"` and `"guide"`, and still misses `"@radix-ui/react-dialog"`.
 
 Read the theme config itself (it is small); do not read stylesheets whole. On a large repo, do
 this in a sub-agent that returns the proposal only.
 
 Then ask **at most three** questions, **one question per message**, skipping any the files
 already answer: brand palette? a reference product or images to follow? density — compact or
-comfortable? Write the proposal, show it (`cat` for a new file) and write it only on a yes.
+comfortable? These three count against the **8-question ceiling** for the whole task
+([responsive.md](responsive.md#the-question-ceiling--at-most-8-across-every-path)) — at the
+ceiling, propose defaults instead and proceed on one confirmation. Write the proposal, show it (`cat` for a new file) and write it only on a yes.
 Under ~150 lines:
 
 ```markdown

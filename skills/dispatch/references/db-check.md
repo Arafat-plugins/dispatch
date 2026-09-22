@@ -23,20 +23,46 @@ password key without `-l`.
 A password pasted into a prompt is a password in a transcript.
 
 **Never put credentials on a command line either.** Every tool call is recorded, and process
-lists are readable. The brief tells the agent to pass them through files or the environment:
+lists are readable. The brief tells the agent to pass them through files or the environment.
+The MySQL row escapes `\` and `"` before writing them: those are the two characters an option
+file treats specially inside a quoted value, so an unescaped password `p"a\s $b c` would be cut
+short at its own quote. `$` and spaces need no escaping.
 
 | Engine | Pass credentials via | Not |
 | --- | --- | --- |
-| MySQL / MariaDB | `mysql --defaults-extra-file=<(printf '[client]\nuser=%s\npassword="%s"\n' "$DB_RO_USER" "$DB_RO_PASSWORD")` — process substitution (bash, zsh), so no file is written; it must be the first option | `-p<password>` |
+| MySQL / MariaDB | `mysql --defaults-extra-file=<(printf '[client]\nuser=%s\npassword="%s"\n' "$DB_RO_USER" "$(sed 's/[\\"]/\\&/g' <<<"$DB_RO_PASSWORD")")` — process substitution (bash, zsh), so no file is written; it must be the first option | `-p<password>` |
 | PostgreSQL | `PGPASSFILE=<file>` / `~/.pgpass`, or `PGPASSWORD` exported from the config file, not typed | `postgres://user:pass@…` in the command |
 | MongoDB | `mongosh "$MONGO_URI_RO"` with the read-only URI exported from the config file | the URI literal |
 | SQLite | none needed | — |
 
-**Loading the values without printing them.** An env file that is valid shell (values quoted
-where they hold spaces, `#` or `$`): `set -a; . ./.env 2>/dev/null; set +a` — `2>/dev/null`
-because a parse error echoes part of the offending value. Otherwise, or when unsure, one key
-at a time: `export DB_RO_USER="$(grep -m1 '^DB_RO_USER=' .env | cut -d= -f2-)"`. Either way, **in the same Bash call as the query** — exports do not survive
-to the next tool call in every runtime — and never `echo` them to check.
+**Loading the values without printing them.** **Parse the file; never execute it.** `.` /
+`source` (with or without `set -a`) runs the file as shell, so a value like
+`p4ss;echo "LEAKED: $DB_RO_PASSWORD"` prints the password on **stdout** — into your context and
+the transcript — and `2>/dev/null` hides none of it. Read only the keys you need, and only as
+text:
+
+```bash
+while IFS= read -r line || [ -n "$line" ]; do
+  line=${line%$'\r'}; line=${line#export }
+  key=${line%%=*}; val=${line#*=}
+  case " DB_RO_USER DB_RO_PASSWORD MONGO_URI_RO DATABASE_URL_RO PGPASSWORD PGPASSFILE " in
+    *" $key "*) ;;
+    *) continue ;;
+  esac
+  case $val in
+    \"*\") val=${val#\"}; val=${val%\"} ;;
+    \'*\') val=${val#\'}; val=${val%\'} ;;
+  esac
+  export "$key=$val"
+done < .env
+```
+
+The key list is a whitelist — add the key **this** repo's config uses, and nothing else; every
+other line, comments and blanks included, falls through `continue`. It tolerates a leading
+`export `, a trailing CR from a CRLF file, and a value holding `=`, `#`, `$` or spaces; it
+strips one matching pair of surrounding single or double quotes, so `DB_RO_USER="ro"` gives
+`ro`, not `"ro"`. It prints nothing. Run it **in the same Bash call as the query** — exports do
+not survive to the next tool call in every runtime — and never `echo` them to check.
 
 ## Real read-only guards, not just instructions
 
@@ -92,6 +118,13 @@ Do NOT modify schema or data under any circumstances.
 
 ## Checks
 <the specific questions>
+
+## Done means
+- [ ] every check above has a query run and a result, or the words "cannot determine"
+- [ ] every command you ran carried the seatbelt for this engine
+- [ ] no credential appears in your output or in any command you quoted
+- [ ] `git status --porcelain` is unchanged — you wrote no file
+- [ ] you report per phase: the check, the query, the result, the judgement
 
 ## Report
 A table of check → query run → result → judgement. At most 40 lines.

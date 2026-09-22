@@ -1,5 +1,164 @@
 # Changelog
 
+## 1.6.0 — 2026-09-22
+
+One new feature — polish moves to a second session — plus two policy changes and the fixes an
+independent review of 1.5.1 found. No renames. The footer line, the four agent names, the
+2-concurrent cap and the "read-only by instruction, checked by the main session" wording are
+unchanged; `effort:` and the critic's model are not.
+
+**The polish session** — new `references/polish.md`, new `/dispatch polish [<NNN>|<what>]` mode
+- On a big project, build **and** polish in one session fills that session's context with detail
+  it does not need, and that is where hallucination starts. Polish now runs in a **second,
+  separate Claude session** in the same repo, started at high effort on opus. The main session
+  learns what happened there from titles and two-line summaries only.
+- Layout, created by bootstrap Step 3: `.claude/dispatch/polish/INDEX.md` (the ledger — one
+  heading, a `summary:` of at most two lines, a one-line `touches:` of at most five paths or
+  surfaces, the note path, and nothing else), `.claude/dispatch/polish/<NNN>-<slug>.md` (the full
+  note, frontmatter `id`/`title`/`summary`/`date`/`touches`/`files`/`request`),
+  `.claude/dispatch/polish/requests/<NNN>-<slug>.md` (the main session's handoff brief).
+- **`touches:` is what the reading rule matches on** — the index line has to carry the thing the
+  decision is made from, or the decision cannot be made from the index alone. It is bounded: five
+  items, one line, `+N more` past that, with the full set staying in the note's `files:`.
+- **The main session's reading rule, a non-negotiable:** before planning any dispatch it reads
+  `INDEX.md` and nothing else from that directory; it opens exactly one full note, and only when
+  a title, summary or `touches:` names a file, surface or behaviour the current brief touches,
+  naming which and why in the plan; it never opens one "to be safe", never reads `requests/`,
+  never edits the index. No `INDEX.md` → polish has never run here, carry on silently. Past ~40
+  entries it reads a **bounded window** — everything above the first entry plus the 40 most
+  recent, one `awk` — and reaches older ones through `grep '^### '` and a `find` by number.
+- **The main session never polishes and never dispatches polish** — a sub-agent is an isolated
+  context, and the point here is a separate one. It writes the request and prints the exact block
+  telling the user to open a second terminal in the repo and run `/dispatch polish <NNN>`. The
+  boundary against the ≤5-line direct edit is decidable and stated in both files: a **correction**
+  with one right answer (a typo, a wrong constant, a version string) is still a direct edit; a
+  **judgement call** settled by looking — "the copy reads badly", "the spacing is almost right" —
+  is polish, however few lines it comes to.
+- **Both sessions load the same `SKILL.md`**, so it now opens with a mode-recognition step, and
+  the four non-negotiables the polish session cannot obey — index-only reading, never polish here,
+  the 2-sub-agent cap, sub-agents never judging themselves — are marked **(main session)** and
+  listed in `polish.md` as the ones its own rules replace. Everything else still binds both.
+- The **8-question ceiling** bounds an intake, so it does not apply to the polish session, which
+  works with the user in the loop; the ceiling is unchanged for the main session
+  (`responsive.md`, `polish.md`).
+- The polish session is a worker, not a dispatcher: it reads `AGENTS.md`, `CLAUDE.md` and the
+  request, then works with the user directly, reading and editing files itself. Same acceptance
+  discipline — the baseline snapshot from `acceptance.md` before anything is touched, the diff
+  shown at the end. It never edits `AGENTS.md` and never commits.
+- On "done" it writes the note, then appends the index entry, in that order, at the next free
+  `NNN` (zero-padded 3 digits, derived from the filenames already on disk — notes and requests
+  share the counter). That numbering command sits in one section both sessions are pointed at,
+  since the main session needs it to number a request. The two-line summary is hard: a summary
+  that needs three lines means the polish was two polishes, split into two notes.
+- Index hygiene is the polish session's, and it compacts the **index**, never the notes: no note
+  file is deleted and no number is reused or renumbered. A fully superseded entry keeps its
+  heading, marked `superseded by <NNN>`; past 40 entries the superseded ones fold into a single
+  heading, which is the one thing that drops their `summary:`, `touches:` and `note:` lines — the
+  notes stay on disk and are found by number. Non-superseded entries are never folded; the main
+  session's bounded window is what keeps a long index cheap to read.
+- Wired into `SKILL.md` (mode row, mode recognition, a section, the scoped non-negotiables),
+  `bootstrap.md` (the directories, the seeded index, Step 6's staging list, `polish_index` in the
+  state file), `acceptance.md` (after an accepted change, polish goes to the polish session),
+  `status.md` (check 10 reports whether polish is set up and how many entries the index holds,
+  reading no note and nothing under `requests/`), `routing.md` (polish is not a routing target),
+  `when-not-to-dispatch.md` (correction vs judgement call), `responsive.md` (the ceiling) and
+  `README.md`.
+
+**Sub-agent effort is high**
+- All four agent templates carry `effort: high` in their frontmatter, replacing `medium`. The
+  Agent tool still has **no per-call effort parameter**, so the frontmatter remains the only
+  place it is set — check the installed file, there is nothing to pass on the dispatch.
+- Repo-owned agents without an `effort:` line still inherit the session's effort; the suggestion
+  to the user is now `effort: high`. The general-purpose fallback still inherits the session and
+  is still noted in the plan. Only the user changes it, in the installed copies (SKILL.md,
+  routing.md, bootstrap.md, README).
+- `scripts/validate.sh` check 12 asserts `effort: high`; `evals/effort-stays-medium.md` renamed
+  to `evals/effort-stays-high.md`.
+
+**The security critic runs on opus, always**
+- `dispatch-security-critic` ships `model: opus`, not `sonnet`, and the template says why: a
+  security judgement that misses something is worse than a slow one, so this role is never
+  downgraded — not for a one-file diff, not because it is read-only. The `haiku`-for-trivial-diffs
+  downgrade is gone.
+- Model-by-weight is otherwise unchanged — `sonnet` for simple text-level work, `opus` for design
+  and core-level implementation — with security review named as always-`opus` regardless of diff
+  size (routing.md, SKILL.md, verifier.md, README).
+- `dispatch-db-tester` stays `model: sonnet`. `scripts/validate.sh` check 8 now asserts all four
+  models and the critic's "never downgraded" line.
+
+**Review fixes carried in this release**
+- `.env` was **executed**, not parsed: `set -a; . ./.env` runs the file as shell, so a value like
+  `p4ss;echo "LEAKED: $DB_RO_PASSWORD"` prints the password on stdout. Replaced by a whitelist
+  text parser that prints nothing (db-check.md).
+- Bootstrap's Step 6 `git add` staged **nothing** when any listed path was absent (exit 128 on
+  the first missing pathspec, and `CLAUDE.md` is optional). Now each path is staged only if it
+  exists, with `find` for the agents glob (bootstrap.md).
+- `/dispatch verify` with no cycle in flight had no BASE or AFTER. verifier.md now derives them —
+  dirty tree against `HEAD`, or a revision the user names — and states what a cold verify cannot
+  check: attribution, intent, and anything committed before BASE.
+- Acceptance was blind to sub-agent **commits** and to **ignored paths**: a new "What the diff
+  cannot see" section records `BASE_HEAD` and an ignored-file baseline up front and checks both
+  (acceptance.md). Three details in that section are stated the way git actually behaves:
+  - The commit check is `git log --oneline <BASE_HEAD>^{commit}..HEAD`. A tree sha there does
+    **not** fail — git resolves the tree-ish and exits 0 having printed the repo's *entire*
+    history, which reads as "the sub-agent committed all of these". `^{commit}` is the guard: the
+    same mistake then stops with `expected commit type` and exit 128.
+  - The ignored-path check ends in an `awk` so its **exit status matches the verdict** — 0 and no
+    output is the pass, 1 means something was written where nothing was watching. Ending on
+    `grep '^>'` inverts it, and a runtime that surfaces non-zero flags every clean acceptance.
+  - `git clean -nxd` is **not** the same set and no longer claimed to be: it collapses a wholly
+    untracked directory to one entry (`dist/`, never `dist/new.js`) and it also lists untracked
+    files that are not ignored.
+- The ignored-file baseline was a single hard-coded `/tmp/dispatch-ignored-base`, which two
+  dispatches in flight overwrite for each other. It is now
+  `git rev-parse --path-format=absolute --git-path dispatch-ignored-<BASE>` — unique per dispatch,
+  inside the git directory, and a linked worktree gets its own. The worktree section gives the
+  `git -C <worktree-path>` form for both commands, which it previously promised and omitted
+  (acceptance.md).
+- The Playwright probe and the run could disagree — the probe ran the skill's copy, which cannot
+  see `.claude/dispatch/browsers/`. Both now run the installed copy from the repo root, with the
+  same `DISPATCH_PYTHON` (setup.md, status.md).
+- That probe was printed with a `<…>` placeholder **inside** a fenced block of otherwise literal
+  commands, where `<` is a redirect and the apostrophe opens a quote — pasting it gave
+  `unexpected EOF while looking for matching '`. Every line in those blocks is now literally
+  runnable and the `DISPATCH_PYTHON=` prefix is explained in prose outside the fence (setup.md,
+  status.md).
+- `setup.md` claimed "steps b and c copy files out of the skill's own directory" — only c does —
+  while step b told you to run c first, so the documented a→b→c order could not be followed. The
+  claim is corrected and the order is stated once: a, b, c, d, e, f, with one detour inside b,
+  because b's Playwright probe runs the copy c installs.
+- The re-dispatch rule contradicted itself: routing.md forbade re-dispatching a brief, failures.md
+  told you to. Now one rule — a rejected attempt always gets a changed brief; only an errored run
+  that changed nothing is re-dispatched unchanged, once (routing.md, failures.md).
+- The critic and db-tester fenced briefs were missing `## Task` and `## Done means` (verifier.md,
+  db-check.md).
+- `scripts/validate.sh` gaps: check 23 now walks every fenced brief for those two sections, and
+  check 24 catches `--intent-to-add` as well as `-N`.
+- More `scripts/validate.sh`: check 28's bootstrap assertion was hollow — it grepped for a string
+  that appears five times in the file, so deleting the whole "The polish directory." block still
+  passed. It now asserts the `mkdir -p`, the index seed, and the `[ -f … ] ||` guard that stops a
+  re-run overwriting the ledger. New check 29 covers the session scoping (mode recognition in
+  `SKILL.md` and `polish.md`, the `(main session)` markers, the ceiling exemption, and the old
+  self-negating mode row as a banned string). New check 30 guards this release's two headline
+  policies **outside** the agent frontmatter that checks 8 and 12 already cover: `effort: high`
+  and security-critic-always-`opus`, asserted in `SKILL.md`, `routing.md`, `bootstrap.md` and
+  `README.md`, plus a repo-wide ban on any other `effort:` value stated as policy.
+- Check 22's `SKILL.md` line limit goes from 250 to 270. The file sat at exactly 250, so any
+  addition failed; 270 is 250 plus the session-routing this release has to put in `SKILL.md`
+  itself — a session must route before it knows which reference to open — and nothing else. The
+  check's own comment records that reasoning.
+- A question ceiling: at most **8 questions across every path** — intake, responsive and setup
+  step d counted together — then one message proposing a default per remaining unknown, answered
+  by a single "go" (responsive.md, new-project.md, setup.md).
+- `AskUserQuestion` is Claude Code-only; both one-question-at-a-time flows now give the plain-text
+  fallback the `compatibility:` line promises (responsive.md, new-project.md).
+- A stale `Styles by surface` table in the example `AGENTS.md`, which bootstrap has not generated
+  since 1.5.0 (examples/AGENTS.example.md).
+- Four smaller ones: Step 0 printed the same skill directory twice (`./x` and `x`); a MySQL
+  password containing `"` or `\` was cut short in the option file; setup.md step d's
+  design-package grep matched `"build"` and `"prebuild"` while missing `"@radix-ui/…"`; and
+  setup.md run alone had no `<SKILL_DIR>` resolved before steps b and c copy from it.
+
 ## 1.5.1 — 2026-09-17
 
 "Review fixes". An independent review of 1.5.0 found cross-file contradictions, shell/git/DB

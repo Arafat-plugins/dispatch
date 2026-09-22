@@ -10,7 +10,7 @@ what keeps the main session's own context small.
 2. Write (or append to) `AGENTS.md` at the repo root, inside dispatch markers.
    2b. **Measure** the known-failing baseline by running the test and lint commands.
    2c. **Capabilities** — provision and record how work gets verified here ([setup.md](setup.md)).
-3. Install the agent templates into `.claude/agents/`.
+3. Install the agent templates into `.claude/agents/`, and create the polish directory.
 4. Point `CLAUDE.md` at `AGENTS.md` if `CLAUDE.md` exists.
 5. Record state in `.claude/.dispatch-state.json`.
 6. Tell the user what to commit, before the first dispatch.
@@ -30,12 +30,12 @@ every candidate with its version:
   done
   find . ~/.claude ~/.agents -path '*/dispatch/agents/dispatch-implementer.md' 2>/dev/null
 } | while IFS= read -r f; do
-  d=$(dirname "$(dirname "$f")")
+  d=$(dirname "$(dirname "$f")"); d=${d#./}          # the list and find spell the same dir two ways
   printf '%s\t%s\n' "$(sed -nE 's/^  version: *//p' "$d/SKILL.md" 2>/dev/null | head -1)" "$d"
 done | sort -u
 ```
 
-Take the first line whose version equals this `SKILL.md`'s `metadata.version` (`1.5.1`) — a
+Take the first line whose version equals this `SKILL.md`'s `metadata.version` (`1.6.0`) — a
 plugin cache can hold older copies, and a stale template installs stale rules. The directory
 is only ever taken from a line that printed; nothing printed, or no line with this version →
 say so and stop. Do not reconstruct templates from memory, and do not fall back to `.`.
@@ -250,9 +250,15 @@ mkdir -p .claude/agents
 cp "<SKILL_DIR>/agents/<template>.md" .claude/agents/     # per template you decided to install
 ```
 
-**Effort.** Every template carries `effort: medium`. Keep that line in the installed copy; for a
-repo's own agents that lack an `effort:` line, suggest adding `effort: medium` (routing.md,
+**Effort.** Every template carries `effort: high`. Keep that line in the installed copy; for a
+repo's own agents that lack an `effort:` line, suggest adding `effort: high` (routing.md,
 *Effort*) — do not edit them without the user's yes.
+
+**Models.** `dispatch-implementer` and `dispatch-frontend` ship `model: opus`,
+`dispatch-db-tester` ships `model: sonnet`, and **`dispatch-security-critic` is `opus` always,
+whatever the diff size** — a security judgement that misses something is worse than a slow one,
+so that one is never installed or overridden downward (routing.md, *Model selection*). The main
+session still sets the model per dispatch; the frontmatter is the default it starts from.
 
 **Never overwrite an existing agent file.** If a template's role is covered but the existing
 agent is weak, say so to the user and let them decide — do not silently replace their work.
@@ -270,6 +276,18 @@ then, routing.md describes the fallback (a general-purpose sub-agent with the te
 the brief).
 
 Record in `AGENTS.md` which agent covers which role, so routing does not have to re-derive it.
+
+**The polish directory.** Create both directories and seed an empty index. Safe to re-run — an
+existing `INDEX.md` is never rewritten, because it is the ledger of every polish run so far
+([polish.md](polish.md)):
+
+```bash
+mkdir -p .claude/dispatch/polish/requests
+[ -f .claude/dispatch/polish/INDEX.md ] || printf '# Polish index\n\nOne entry per polish run: a heading, a summary of at most two lines, a one-line touches: of\nat most five paths or surfaces, and the note path. Nothing else belongs in this file.\nThe main session reads only this file.\n' > .claude/dispatch/polish/INDEX.md
+```
+
+`requests/` holds the main session's handoff briefs; the notes sit beside `INDEX.md`. Nobody
+polishes in the main session — say so once to the user here, with the `/dispatch polish` command.
 
 ## Step 4 — link CLAUDE.md
 
@@ -290,12 +308,14 @@ If `CLAUDE.md` does not exist, do not create one. `AGENTS.md` is enough.
   "agents_map": "AGENTS.md",
   "baseline_measured": "<ISO date, or null>",
   "capabilities_measured": "<ISO date, or null>",
-  "version": "1.5.1"
+  "polish_index": ".claude/dispatch/polish/INDEX.md",
+  "version": "1.6.0"
 }
 ```
 
 at `.claude/.dispatch-state.json`. `status` reads `commit` to measure drift,
-`baseline_measured` to age the baseline, and `capabilities_measured` to know setup ran.
+`baseline_measured` to age the baseline, `capabilities_measured` to know setup ran, and
+`polish_index` for the ledger path it counts entries in ([status.md](status.md), check 10).
 
 ## Step 6 — commit, before the first dispatch
 
@@ -303,11 +323,21 @@ Bootstrap leaves the tree dirty. Acceptance diffs against a baseline; if bootstr
 still uncommitted they land in every dispatch's diff. So, before the first dispatch, one of:
 
 ```bash
-git add AGENTS.md CLAUDE.md .claude/agents/dispatch-*.md .claude/.dispatch-state.json \
-        .claude/dispatch/dispatch-measure.mjs
-git add <DESIGN.md, .gitignore, manifest + lockfile — whichever Step 2c changed>
+for p in AGENTS.md CLAUDE.md .claude/.dispatch-state.json .claude/dispatch/dispatch-measure.mjs \
+         .claude/dispatch/polish/INDEX.md; do
+  if [ -e "$p" ]; then git add -- "$p"; fi
+done
+if [ -d .claude/agents ]; then find .claude/agents -maxdepth 1 -name 'dispatch-*.md' -exec git add -- {} +; fi
+git add -- <DESIGN.md, .gitignore, manifest + lockfile — whichever Step 2c changed>
 git commit -m "chore: dispatch bootstrap"
 ```
+
+**Stage each path only if it exists.** One `git add` listing them all exits 128 with
+`fatal: pathspec … did not match any files` and stages **nothing** the moment one is absent —
+and `CLAUDE.md` is optional here (Step 4), while `.claude/agents/dispatch-*.md` matches nothing
+in a repo whose roles were already covered. The form above stages whatever is there and exits 0
+in every case; `find` is used for the glob because an unmatched glob aborts the whole command
+in zsh.
 
 or the snapshot baseline from acceptance.md. Bootstrap does not commit on its own — say the
 command and let the user run it.
@@ -315,7 +345,9 @@ command and let the user run it.
 **What to commit:** `AGENTS.md`, `.claude/agents/dispatch-*.md`, the `CLAUDE.md` patch — yes,
 recommended; they are the map every teammate's session needs. So are
 `.claude/dispatch/dispatch-measure.mjs`, `DESIGN.md`, and any dev-dependency Step 2c added
-(manifest + lockfile) — every teammate's acceptance runs on them. Never
+(manifest + lockfile) — every teammate's acceptance runs on them. So is
+`.claude/dispatch/polish/INDEX.md`: it is the ledger every later session plans from, and the
+notes it points at are committed with it as they appear. Never
 `.claude/dispatch/browsers/`: it is a downloaded binary, gitignored by setup.
 `.claude/.dispatch-state.json` — commit it too: it is small, deterministic, and `status` on a
 fresh clone depends on it. If

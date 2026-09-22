@@ -25,6 +25,9 @@ If the repo has none, `/dispatch bootstrap` installs the generic set below.
 | "Is this change safe?" | `dispatch-security-critic` | Critic only, never edits |
 | Reviewing a diff before commit | repo's own review agent, else `dispatch-security-critic` | |
 
+**Polish is not a routing target.** There is no agent for it and no row above: it goes to a
+second Claude session, never to a sub-agent of this one ([polish.md](polish.md)).
+
 **The scout.** In Claude Code, the built-in `Explore` agent. Anywhere else: any sub-agent
 whose tools are `Read, Grep, Glob` only, or a general-purpose sub-agent briefed "return paths
 and line numbers only; edit nothing; output ≤ 20 lines". The verify chain's "scout stage" is
@@ -42,7 +45,7 @@ any of the four), do not wait and do not skip the dispatch:
    `<SKILL_DIR>/agents/<name>.md` (the path bootstrap.md, Step 0, recorded in your plan).
 3. State the tool restriction in words inside the brief ("you have no browser; you are
    read-only; do not write files") — a general-purpose agent has every tool.
-4. The fallback inherits the session's effort — it cannot be set to `medium` per call. Note
+4. The fallback inherits the session's effort — it cannot be set to `high` per call. Note
    it in the plan (see [Effort](#effort)).
 5. Tell the user a restart makes the named agents available.
 
@@ -55,9 +58,15 @@ is right.
 **Read-only work goes to a read-only agent.** If you need to know *where* something is, dispatch
 a scout that returns paths. Do not give edit tools to a question.
 
-**Never dispatch the same brief twice hoping for a different result.** A second failure means
-the brief is wrong. Rewrite the spec, then dispatch. A third failure stops the loop
-(failures.md).
+**Never dispatch the same brief twice hoping for a different result.** An attempt that came back
+and was rejected gets a brief that changed — the original plus what failed and what correct
+looks like on the first rejection, a rewritten spec on the second. A third failure stops the
+loop (failures.md).
+
+The one narrow exception: the run errored or timed out and **nothing changed** — the tree is
+identical to BASE. No attempt was made, so there is no result to differ from; re-dispatch the
+identical brief once (failures.md, case 2). A second error there is treated as a rejection and
+the brief is rewritten.
 
 **Sequence, do not parallelise, when work touches the same files.** Two agents editing one file
 produce a diff neither of them intended. Parallel dispatch is fine only for genuinely disjoint
@@ -99,9 +108,10 @@ choice plus a one-line reason in your plan.
 
 | Task kind | Model | Why |
 | --- | --- | --- |
-| Light — text/copy, docs, renames, config values, small mechanical edits, read-only scouting, DB checks, the security critic | `sonnet` | Simple, bounded work; spending `opus` (or `fable`, where the runtime offers it) here is waste. |
+| Light — simple text-level work: text/copy, docs, renames, config values, small mechanical edits, read-only scouting, DB checks | `sonnet` | Simple, bounded work; spending `opus` (or `fable`, where the runtime offers it) here is waste. |
 | Heavy — design work: UI/visual design, layout systems | `opus` | Judged by looking; the stronger model earns its cost on taste calls. |
 | Heavy — core-level implementation: architecture, new subsystems, business logic, cross-file changes, anything the brief calls core | `opus` | Getting the shape wrong costs more than the extra spend to get it right. |
+| **Security review — always, whatever the diff size** | `opus` | A judgement that misses something is worse than a slow one. A one-line diff is exactly where a missed finding ships. |
 
 Unsure whether a task is light or heavy? If it touches design or core-level implementation,
 choose `opus` and say why in the plan.
@@ -109,27 +119,27 @@ choose `opus` and say why in the plan.
 **Template defaults.** `dispatch-implementer` and `dispatch-frontend` ship with `model: opus`
 in frontmatter — they exist for core and design work. The main session overrides *down* to
 `sonnet` on the Agent tool call for anything light (a copy fix, a renamed field, a config
-value). `dispatch-db-tester` and `dispatch-security-critic` stay `model: sonnet` — their job is
-bounded evidence-gathering, not a judgement call. `haiku` is a legitimate further downgrade
-from `sonnet` for the critic on a trivial diff (copy, styles, a one-file change with no input
-handling) — **set it per call**, on the Agent tool's `model`, like every other choice here.
-Editing the installed file's `model:` line does nothing: the per-call `model` always wins.
+value). `dispatch-security-critic` ships with `model: opus` too and is **never** dispatched at
+`sonnet` or `haiku` — not for a one-file diff, not for a copy change, not because it is
+read-only; size is not a reason to think less hard about safety. `dispatch-db-tester` stays
+`model: sonnet` — its job is bounded evidence-gathering, not a judgement call. Editing the
+installed file's `model:` line does nothing: the per-call `model` always wins, so set `opus`
+for the critic on every verify call.
 
 Nothing switches mid-task. The main session stays whatever the user is running.
 
 ## Effort
 
-**Every sub-agent runs at `effort: medium`.** Model picks *how capable*; effort picks *how long
-it thinks*. Medium is enough for a briefed job — the brief already did the hard thinking — and
-keeps each dispatch fast and cheap, whether the model is `sonnet` or `opus`.
+**Every sub-agent runs at `effort: high`.** Model picks *how capable*; effort picks *how long
+it thinks*. High is the setting for a briefed job, whether the model is `sonnet` or `opus`.
 
 - **Where it is set:** the `effort:` line in each agent file's frontmatter. All four templates
-  ship with `effort: medium`. The Agent tool has **no per-call effort parameter**, so there is
-  nothing to set on the dispatch itself — only check the installed file still says `medium`.
+  ship with `effort: high`. The Agent tool has **no per-call effort parameter**, so there is
+  nothing to set on the dispatch itself — only check the installed file still says `high`.
 - **Repo's own agents:** if a purpose-built agent has no `effort:` line it inherits the
-  session's effort. Tell the user once, and suggest adding `effort: medium` to it.
+  session's effort. Tell the user once, and suggest adding `effort: high` to it.
 - **Fallback sub-agent** (a general-purpose agent carrying a template body — see above): it
   inherits the session's effort and nothing in the call can change that. Say so in the plan.
-- **Changing it** — `low`, `high`, `xhigh`, `max` — is the user's decision, per repo, in the
-  installed copies. Never raise it yourself to rescue a failing brief; a failing brief is
+- **Changing it** — `low`, `medium`, `xhigh`, `max` — is the user's decision, per repo, in the
+  installed copies. Never change it yourself to rescue a failing brief; a failing brief is
   rewritten (failures.md), not thought about harder.

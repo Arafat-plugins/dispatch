@@ -128,12 +128,17 @@ done
 [ "$n_evals" -ge 5 ] || bad "evals: expected at least 5 scenarios, found $n_evals"
 pass "evals: $n_evals scenarios with Setup / Prompt / Expected behaviour, all listed in evals/README.md"
 
-# 8. implementer and frontend templates default to model: opus — in the frontmatter itself
+# 8. agent template models — in the frontmatter itself. The security critic is always opus:
+#    a judgement that misses something is worse than a slow one, whatever the diff size.
 check
-for a in dispatch-implementer dispatch-frontend; do
+for a in dispatch-implementer dispatch-frontend dispatch-security-critic; do
   fm_of "$SKILL/agents/$a.md" | grep -qE '^model: *opus$' || bad "$a: expected 'model: opus' in frontmatter"
 done
-pass "dispatch-implementer and dispatch-frontend default to model: opus (frontmatter)"
+fm_of "$SKILL/agents/dispatch-db-tester.md" | grep -qE '^model: *sonnet$' \
+  || bad "dispatch-db-tester: expected 'model: sonnet' in frontmatter"
+grep -qE 'never downgraded to `sonnet`' "$SKILL/agents/dispatch-security-critic.md" \
+  || bad "dispatch-security-critic.md does not say the role is never downgraded to sonnet"
+pass "dispatch-implementer, dispatch-frontend and dispatch-security-critic default to model: opus; dispatch-db-tester to sonnet"
 
 # 9. SKILL.md states the 2-concurrent-sub-agent cap
 check
@@ -159,12 +164,12 @@ else
 fi
 pass "new-project.md exists, is linked from SKILL.md, and mentions 'one question'"
 
-# 12. every agent template runs at effort: medium — in the frontmatter itself
+# 12. every agent template runs at effort: high — in the frontmatter itself
 check
 for f in "$SKILL"/agents/*.md; do
-  fm_of "$f" | grep -qE '^effort: *medium$' || bad "$(basename "$f" .md): expected 'effort: medium' in frontmatter"
+  fm_of "$f" | grep -qE '^effort: *high$' || bad "$(basename "$f" .md): expected 'effort: high' in frontmatter"
 done
-pass "agent templates set effort: medium (frontmatter)"
+pass "agent templates set effort: high (frontmatter)"
 
 # 13. the measure script ships with the skill and parses (node --check; skipped only without node)
 check
@@ -269,22 +274,28 @@ grep -qF 'Surfaces table' "$SKILL/SKILL.md" || bad "SKILL.md LOCATE step does no
 grep -qF 'Styles by surface' "$SKILL/references/prompt-spec.md" && bad "prompt-spec.md names a 'Styles by surface' table; bootstrap generates 'Surfaces'"
 pass "bootstrap.md generates a Surfaces table; SKILL.md LOCATE and prompt-spec.md use that name"
 
-# 21. version: this release's checks assume at least 1.5.1 (consistency itself is check 5)
+# 21. version: this release's checks assume at least 1.6.0 (consistency itself is check 5)
 check
-MIN_VERSION=1.5.1
+MIN_VERSION=1.6.0
 if [ -z "$v_skill" ] || [ "$(printf '%s\n%s\n' "$MIN_VERSION" "$v_skill" | sort -V | head -1)" != "$MIN_VERSION" ]; then
   bad "version '$v_skill' is older than $MIN_VERSION, which the checks below assume"
 fi
 pass "version $v_skill is at least $MIN_VERSION"
 
-# 22. SKILL.md stays lean and lists every mode; details live in references
+# 22. SKILL.md stays lean and lists every mode; details live in references.
+#     The limit was 250 through 1.5.1 and the file sat at exactly 250, so any addition failed.
+#     1.6.0 has to say in SKILL.md itself which of the two sessions is reading it and which
+#     non-negotiables that session is bound by — routing that cannot live in a reference file,
+#     because a session has to route before it knows which reference to open. 270 is 250 plus
+#     that routing (the mode-recognition block, the "(main session)" markers, their preamble)
+#     and nothing else; everything beyond it is detail, and detail belongs in references/.
 check
 lines=$(wc -l < "$SKILL/SKILL.md")
-[ "$lines" -le 250 ] || bad "SKILL.md is $lines lines — move detail into references (limit 250)"
+[ "$lines" -le 270 ] || bad "SKILL.md is $lines lines — move detail into references (limit 270)"
 for m in '/dispatch setup' '/dispatch deps' '/dispatch bootstrap' '/dispatch new' '/dispatch verify' '/dispatch db' '/dispatch status'; do
   grep -qF "| \`$m" "$SKILL/SKILL.md" || bad "SKILL.md mode table has no row for $m"
 done
-pass "SKILL.md is $lines lines (limit 250); mode table lists bootstrap, setup, new, deps, verify, db, status"
+pass "SKILL.md is $lines lines (limit 270); mode table lists bootstrap, setup, new, deps, verify, db, status"
 
 # 23. every brief carries Task and Done means (SKILL.md's list and prompt-spec.md's template),
 #     and every UI brief names its page (Page URL)
@@ -302,12 +313,25 @@ grep -qF 'Page URL' "$SKILL/agents/dispatch-frontend.md" || bad "dispatch-fronte
 if grep -rn '\$URL\b' "$SKILL/references" "$SKILL/agents" | grep -q .; then
   bad "an undefined \$URL is used:"; grep -rn '\$URL\b' "$SKILL/references" "$SKILL/agents"
 fi
-pass "briefs carry Task and Done means; UI briefs carry Page URL(s), read by acceptance and the frontend agent"
+# ...and the fenced example briefs themselves, not just the prose: every fenced block that opens
+# with "## Task" or "## Role" must carry a "## Task" line and a "## Done means" line.
+for p in "$SKILL/SKILL.md" "$SKILL"/references/*.md; do
+  miss=$(awk '
+    /^ *```/ { if (inb) { if (isb) { if (!t) m = m " no-Task@" start; if (!d) m = m " no-Done-means@" start } inb = 0 }
+               else { inb = 1; isb = 0; t = 0; d = 0; first = 1; start = NR } ; next }
+    inb { if (first && $0 != "") { first = 0; if ($0 ~ /^## (Task|Role)([ ]|$)/) isb = 1 }
+          if ($0 == "## Task") t = 1; if ($0 == "## Done means") d = 1 }
+    END { print m }' "$p")
+  [ -z "$miss" ] || bad "${p#"$SKILL/"}: a fenced brief is missing a mandatory section (block at line:$miss)"
+done
+pass "briefs carry Task and Done means, in the prose list and in every fenced brief; UI briefs carry Page URL(s)"
 
 # 24. base handling: printed shas, a snapshot instead of intent-to-add, worktree-safe index path
 check
-if grep -rn 'git add -N' "$SKILL" "$ROOT/README.md" | grep -q .; then
-  bad "'git add -N' is still used (acceptance takes a second snapshot instead):"; grep -rn 'git add -N' "$SKILL" "$ROOT/README.md"
+INTENT='git add[^`]*(-N\b|--intent-to-add\b)'
+if grep -rnE "$INTENT" "$SKILL" "$ROOT/README.md" | grep -q .; then
+  bad "'git add -N' / 'git add --intent-to-add' is still used (acceptance takes a second snapshot instead):"
+  grep -rnE "$INTENT" "$SKILL" "$ROOT/README.md"
 fi
 if grep -rnE 'BASE=\$\(|"\$BASE"|GIT_INDEX_FILE=\.git/' "$SKILL" "$ROOT/evals" | grep -q .; then
   bad "BASE is kept in a shell variable or the index path assumes .git is a directory:"
@@ -366,5 +390,74 @@ else
   fi
 fi
 pass "scripts/measure.test.mjs covers --prop --brand; node --test: $how"
+
+# 28. the polish session: its mode row, its reference file, and the index-only rule in the
+#     non-negotiables (the rule the whole feature rests on — it must survive an edit to SKILL.md)
+check
+grep -qF '| `/dispatch polish' "$SKILL/SKILL.md" || bad "SKILL.md mode table has no /dispatch polish row"
+if [ -f "$SKILL/references/polish.md" ]; then
+  grep -q 'references/polish.md' "$SKILL/SKILL.md" || bad "polish.md exists but is not linked from SKILL.md"
+  for s in '.claude/dispatch/polish/INDEX.md' '.claude/dispatch/polish/requests/' 'at most two lines'; do
+    grep -qF "$s" "$SKILL/references/polish.md" || bad "polish.md does not define '$s'"
+  done
+else
+  bad "skills/dispatch/references/polish.md is missing"
+fi
+awk '/^## Non-negotiables/{s=1; next} s && /^## /{s=0} s' "$SKILL/SKILL.md" \
+  | grep -qF '.claude/dispatch/polish/INDEX.md' \
+  || bad "SKILL.md non-negotiables do not carry the index-only polish reading rule"
+# bootstrap must carry the creation COMMANDS, not just the path: the string
+# '.claude/dispatch/polish' appears throughout the file, so grepping for it passes even with
+# the whole "The polish directory." block deleted.
+grep -qF 'mkdir -p .claude/dispatch/polish/requests' "$SKILL/references/bootstrap.md" \
+  || bad "bootstrap.md does not run 'mkdir -p .claude/dispatch/polish/requests'"
+grep -qF '> .claude/dispatch/polish/INDEX.md' "$SKILL/references/bootstrap.md" \
+  || bad "bootstrap.md does not seed .claude/dispatch/polish/INDEX.md"
+grep -qF '[ -f .claude/dispatch/polish/INDEX.md ] ||' "$SKILL/references/bootstrap.md" \
+  || bad "bootstrap.md's index seed is unguarded — re-running bootstrap would overwrite the ledger"
+pass "polish mode row, references/polish.md linked, index-only rule in the non-negotiables, bootstrap runs mkdir + a guarded index seed"
+
+# 29. the polish session is scoped, not self-negating: SKILL.md says which session is reading
+#     it, polish.md says which non-negotiables it replaces, and the ceiling exempts it
+check
+grep -qF 'Which session are you?' "$SKILL/SKILL.md" \
+  || bad "SKILL.md has no mode-recognition step — a polish session cannot tell it is the second session"
+awk '/^## Non-negotiables/{s=1; next} s && /^## /{s=0} s' "$SKILL/SKILL.md" \
+  | grep -qF '(main session)' \
+  || bad "SKILL.md non-negotiables are not scoped to the main session — they forbid the polish session its job"
+for s in 'Which session are you?' 'replaces four of' 'ceiling does not apply here'; do
+  grep -qF "$s" "$SKILL/references/polish.md" || bad "polish.md does not state '$s'"
+done
+grep -qF 'ceiling bounds an intake' "$SKILL/references/responsive.md" \
+  || bad "responsive.md does not exempt the polish session from the 8-question ceiling"
+grep -qF 'The second session, never this one' "$SKILL/SKILL.md" \
+  && bad "SKILL.md's polish mode row still reads 'The second session, never this one' — self-negating to the session reading it"
+pass "polish/main session recognition in SKILL.md and polish.md; non-negotiables scoped; question ceiling exempts polish"
+
+# 30. the 1.6.0 effort and model policy, in the prose — the agent frontmatter is checks 8 and 12,
+#     but nothing there stops the rules the main session reads from drifting back
+check
+if grep -rnE 'effort: *(low|medium|xhigh|max)\b' "$SKILL" "$ROOT/README.md" "$ROOT/evals" "$ROOT/scripts" | grep -q .; then
+  bad "an effort other than high is stated as policy:"
+  grep -rnE 'effort: *(low|medium|xhigh|max)\b' "$SKILL" "$ROOT/README.md" "$ROOT/evals" "$ROOT/scripts"
+fi
+grep -qF 'Effort is `high` for every sub-agent' "$SKILL/SKILL.md" \
+  || bad "SKILL.md does not state 'Effort is \`high\` for every sub-agent'"
+grep -qF 'Every sub-agent runs at `effort: high`' "$SKILL/references/routing.md" \
+  || bad "routing.md does not state 'Every sub-agent runs at \`effort: high\`'"
+grep -qF 'Every template carries `effort: high`' "$SKILL/references/bootstrap.md" \
+  || bad "bootstrap.md Step 3 does not state 'Every template carries \`effort: high\`'"
+grep -qF 'sets `effort: high` in its frontmatter' "$ROOT/README.md" \
+  || bad "README.md does not state that every template sets 'effort: high' in its frontmatter"
+# ...and the security critic is opus in all four, however small the diff
+grep -qF 'security critic **always**, however small the diff' "$SKILL/SKILL.md" \
+  || bad "SKILL.md's model paragraph does not pin the security critic to opus for every diff size"
+grep -qF '| **Security review — always, whatever the diff size** | `opus` |' "$SKILL/references/routing.md" \
+  || bad "routing.md's model table has no always-opus row for security review"
+grep -qF '`dispatch-security-critic` is `opus` always' "$SKILL/references/bootstrap.md" \
+  || bad "bootstrap.md Step 3 does not say dispatch-security-critic installs as opus always"
+grep -qF '| opus (always, whatever the diff size) |' "$ROOT/README.md" \
+  || bad "README.md's agent table does not mark dispatch-security-critic opus (always, whatever the diff size)"
+pass "effort: high and security-critic-always-opus stated in SKILL.md, routing.md, bootstrap.md and README.md"
 
 [ "$nfail" -eq 0 ] && { echo "PASS"; exit 0; } || { echo "FAILED ($nfail)"; exit 1; }

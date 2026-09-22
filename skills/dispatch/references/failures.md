@@ -46,9 +46,14 @@ git status --porcelain
 git diff --stat <BASE> <AFTER>
 ```
 
-- **Nothing changed** — re-dispatch the same brief once. Counts as a failure only if it errors
-  again; then treat the second error as a rejection and rewrite (the brief may be asking for
-  something the environment cannot do: a test that needs a DB, a build that needs a network).
+- **Nothing changed** — the tree is identical to BASE: the runtime failed before the agent
+  produced anything, so **no attempt was made and there is no result to disagree with**. This is
+  the one case where an identical brief is re-dispatched, once, unchanged (routing.md, "Never
+  dispatch the same brief twice"). Counts as a failure only if it errors again; then treat the
+  second error as a rejection and rewrite (the brief may be asking for something the environment
+  cannot do: a test that needs a DB, a build that needs a network). **An attempt that came back
+  and was rejected is never re-run as-is** — that is case 1, and the brief is augmented or
+  rewritten.
 - **Partial edits** — this is an attempt. Either revert to BASE (above) and re-dispatch, or
   re-dispatch with a line under Inputs: "A previous attempt left partial edits in `<files>`;
   finish them or revert them, do not start over." Never accept partial work as-is.

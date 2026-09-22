@@ -69,16 +69,9 @@ not from the docs. Storefront rows only; admin screens are grouped.
 `Pricing`, `Tax`, `Shipping`, `Fulfillment`, `Inventory`, `Customer`, `Reviews`, `Email`,
 `Webhooks`, `Queue`, `Audit`, `Logging`, `Privacy`, `Money`, `Http`.
 
-## Styles by surface
+## Breakpoints
 
-| Surface | File |
-| --- | --- |
-| Single product | `single-product.css`, `single-product-advanced.css` |
-| Catalog / archive | `catalog-discovery.css`, `archive-product.css`, `products-shortcode.css` |
-| Cart / checkout / account | `cart.css`, `checkout.css`, `account.css` |
-| Storefront sections | `storefront-sections.css`, `content-sections.css` |
-
-**Breakpoints — use what the file already has; do not invent new ones.** Verified from the
+**Use what the file already has; do not invent new ones.** Verified from the
 `@media` queries actually present:
 
 | Stylesheet | Breakpoints in use |
