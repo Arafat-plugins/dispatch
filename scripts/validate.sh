@@ -6,7 +6,7 @@ set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SKILL="$ROOT/skills/dispatch"
-FOOTER='[ task list broken down into phases, each phase as a vertical slice, numbered ]'
+FOOTER='[ follow the numbered steps above in order; do not plan, add, skip or reorder steps; if a step cannot be done as written, stop and report ]'
 nfail=0
 mark=0
 bad()   { printf 'FAIL  %s\n' "$1"; nfail=$((nfail + 1)); }
@@ -82,7 +82,7 @@ for p in "$SKILL/SKILL.md" "$SKILL"/references/*.md; do
   esac
 done
 # no near-miss paraphrases anywhere in the repo (this script excluded: it holds the patterns)
-PARA='\[ *task list|task list broken down|each phase as a vertical'
+PARA='\[ *follow the numbered|follow the numbered steps above|task list broken down|each phase as a vertical'
 if grep -rnE "$PARA" "$ROOT" --exclude-dir=.git | grep -v '^[^:]*scripts/validate\.sh:' | grep -vF "$FOOTER" | grep -q .; then
   bad "a paraphrased footer exists:"
   grep -rnE "$PARA" "$ROOT" --exclude-dir=.git | grep -v '^[^:]*scripts/validate\.sh:' | grep -vF "$FOOTER"
@@ -128,17 +128,16 @@ done
 [ "$n_evals" -ge 5 ] || bad "evals: expected at least 5 scenarios, found $n_evals"
 pass "evals: $n_evals scenarios with Setup / Prompt / Expected behaviour, all listed in evals/README.md"
 
-# 8. agent template models — in the frontmatter itself. The security critic is always opus:
-#    a judgement that misses something is worse than a slow one, whatever the diff size.
+# 8. agent template models — in the frontmatter itself. 1.7.0: every template is Opus 5.5, pinned
+#    by full model ID (an alias moves when a newer model ships; the ID does not).
 check
-for a in dispatch-implementer dispatch-frontend dispatch-security-critic; do
-  fm_of "$SKILL/agents/$a.md" | grep -qE '^model: *opus$' || bad "$a: expected 'model: opus' in frontmatter"
+for f in "$SKILL"/agents/*.md; do
+  a=$(basename "$f" .md)
+  fm_of "$f" | grep -qE '^model: *claude-opus-5-5$' || bad "$a: expected 'model: claude-opus-5-5' in frontmatter"
 done
-fm_of "$SKILL/agents/dispatch-db-tester.md" | grep -qE '^model: *sonnet$' \
-  || bad "dispatch-db-tester: expected 'model: sonnet' in frontmatter"
-grep -qE 'never downgraded to `sonnet`' "$SKILL/agents/dispatch-security-critic.md" \
-  || bad "dispatch-security-critic.md does not say the role is never downgraded to sonnet"
-pass "dispatch-implementer, dispatch-frontend and dispatch-security-critic default to model: opus; dispatch-db-tester to sonnet"
+grep -qF 'never downgraded to `sonnet`, `haiku` or `fable`' "$SKILL/agents/dispatch-security-critic.md" \
+  || bad "dispatch-security-critic.md does not say the role is never downgraded to sonnet, haiku or fable"
+pass "all agent templates pin model: claude-opus-5-5 (Opus 5.5); the critic is never downgraded"
 
 # 9. SKILL.md states the 2-concurrent-sub-agent cap
 check
@@ -242,7 +241,7 @@ check
 if [ -f "$SKILL/references/dependencies.md" ]; then
   grep -q 'references/dependencies.md' "$SKILL/SKILL.md" || bad "dependencies.md exists but is not linked from SKILL.md"
   grep -qF "$FOOTER" "$SKILL/references/dependencies.md" || bad "dependencies.md: verbatim footer line missing"
-  grep -qF '`sonnet`' "$SKILL/references/dependencies.md" || bad "dependencies.md does not pin the deps brief to sonnet"
+  grep -qF 'Opus 5.5' "$SKILL/references/dependencies.md" || bad "dependencies.md does not pin the deps brief to Opus 5.5"
 else
   bad "skills/dispatch/references/dependencies.md is missing"
 fi
@@ -250,7 +249,7 @@ for f in references/failures.md references/when-not-to-dispatch.md; do
   grep -qF 'dependencies.md' "$SKILL/$f" || bad "$f does not route dependency changes to dependencies.md"
 done
 grep -qF '/dispatch deps' "$SKILL/SKILL.md" || bad "SKILL.md mode table has no /dispatch deps row"
-pass "dependencies.md linked with footer and sonnet; failures.md and when-not-to-dispatch.md route to it"
+pass "dependencies.md linked with footer and Opus 5.5; failures.md and when-not-to-dispatch.md route to it"
 
 # 19. database guards are a hard rule: refuse the application's read-write credential
 check
@@ -274,9 +273,9 @@ grep -qF 'Surfaces table' "$SKILL/SKILL.md" || bad "SKILL.md LOCATE step does no
 grep -qF 'Styles by surface' "$SKILL/references/prompt-spec.md" && bad "prompt-spec.md names a 'Styles by surface' table; bootstrap generates 'Surfaces'"
 pass "bootstrap.md generates a Surfaces table; SKILL.md LOCATE and prompt-spec.md use that name"
 
-# 21. version: this release's checks assume at least 1.6.0 (consistency itself is check 5)
+# 21. version: this release's checks assume at least 1.9.0 (consistency itself is check 5)
 check
-MIN_VERSION=1.6.0
+MIN_VERSION=2.0.0
 if [ -z "$v_skill" ] || [ "$(printf '%s\n%s\n' "$MIN_VERSION" "$v_skill" | sort -V | head -1)" != "$MIN_VERSION" ]; then
   bad "version '$v_skill' is older than $MIN_VERSION, which the checks below assume"
 fi
@@ -300,10 +299,10 @@ pass "SKILL.md is $lines lines (limit 270); mode table lists bootstrap, setup, n
 # 23. every brief carries Task and Done means (SKILL.md's list and prompt-spec.md's template),
 #     and every UI brief names its page (Page URL)
 check
-for item in Task Inputs 'Done means' Report Footer; do
+for item in Task Inputs Steps 'Done means' Report Footer; do
   grep -qE "^- \*\*$item\*\*" "$SKILL/SKILL.md" || bad "SKILL.md 'Every brief carries' list has no '- **$item**' line"
 done
-for h in '## Task' '## Inputs' '## Done means' '## Report'; do
+for h in '## Task' '## Inputs' '## Steps' '## Done means' '## Report'; do
   grep -qx "$h" "$SKILL/references/prompt-spec.md" || bad "prompt-spec.md template has no '$h' section"
 done
 [ "$(grep -cE '^Page URL\(s\):' "$SKILL/references/prompt-spec.md")" -ge 2 ] \
@@ -449,15 +448,151 @@ grep -qF 'Every template carries `effort: high`' "$SKILL/references/bootstrap.md
   || bad "bootstrap.md Step 3 does not state 'Every template carries \`effort: high\`'"
 grep -qF 'sets `effort: high` in its frontmatter' "$ROOT/README.md" \
   || bad "README.md does not state that every template sets 'effort: high' in its frontmatter"
-# ...and the security critic is opus in all four, however small the diff
-grep -qF 'security critic **always**, however small the diff' "$SKILL/SKILL.md" \
-  || bad "SKILL.md's model paragraph does not pin the security critic to opus for every diff size"
-grep -qF '| **Security review — always, whatever the diff size** | `opus` |' "$SKILL/references/routing.md" \
-  || bad "routing.md's model table has no always-opus row for security review"
-grep -qF '`dispatch-security-critic` is `opus` always' "$SKILL/references/bootstrap.md" \
-  || bad "bootstrap.md Step 3 does not say dispatch-security-critic installs as opus always"
-grep -qF '| opus (always, whatever the diff size) |' "$ROOT/README.md" \
-  || bad "README.md's agent table does not mark dispatch-security-critic opus (always, whatever the diff size)"
-pass "effort: high and security-critic-always-opus stated in SKILL.md, routing.md, bootstrap.md and README.md"
+# ...and the security critic is Opus 5.5 in all four, however small the diff
+grep -qF '**always**, however small the diff — never `sonnet`, `haiku` or `fable`' "$SKILL/SKILL.md" \
+  || bad "SKILL.md's model paragraph does not pin the security critic to Opus 5.5 for every diff size"
+grep -qF '`dispatch-security-critic` in particular is **never**' "$SKILL/references/routing.md" \
+  || bad "routing.md does not say the security critic is never dispatched on another model"
+grep -qF 'Opus 5.5 always, whatever the diff size**' "$SKILL/references/bootstrap.md" \
+  || bad "bootstrap.md Step 3 does not say dispatch-security-critic installs as Opus 5.5 always"
+grep -qF '| Opus 5.5 (always, whatever the diff size) |' "$ROOT/README.md" \
+  || bad "README.md's agent table does not mark dispatch-security-critic Opus 5.5 (always, whatever the diff size)"
+pass "effort: high and security-critic-always-Opus-5.5 stated in SKILL.md, routing.md, bootstrap.md and README.md"
+
+# 31. 1.7.0 — Opus 5.5 everywhere. No instruction may route work to another model: outside the
+#     changelogs, `sonnet` / `haiku` / `fable` appear only in a line that forbids them. The scout
+#     and the fallback get the model on the call, and status checks the pin.
+check
+if grep -rnE '`(sonnet|haiku|fable)`|model: *(sonnet|haiku|fable|opus)\b' "$SKILL" "$ROOT/README.md" "$ROOT/evals" \
+     | grep -viE 'never|not |no downgrade|no cheaper|frontmatter says|alias|says `sonnet`' | grep -q .; then
+  bad "a model other than Opus 5.5 is routed to (or an alias is pinned) outside a line forbidding it:"
+  grep -rnE '`(sonnet|haiku|fable)`|model: *(sonnet|haiku|fable|opus)\b' "$SKILL" "$ROOT/README.md" "$ROOT/evals" \
+    | grep -viE 'never|not |no downgrade|no cheaper|frontmatter says|alias|says `sonnet`'
+fi
+grep -qF '**Opus 5.5 for every sub-agent, every dispatch.**' "$SKILL/SKILL.md" \
+  || bad "SKILL.md does not state 'Opus 5.5 for every sub-agent, every dispatch.'"
+grep -qF '**One model for every sub-agent: Opus 5.5** (`claude-opus-5-5`)' "$SKILL/references/routing.md" \
+  || bad "routing.md's Model selection does not open with the one-model rule"
+grep -qF '**No scout.**' "$SKILL/references/routing.md" \
+  || bad "routing.md does not state that there is no scout sub-agent (2.0.0)"
+grep -qF 'fallback has no frontmatter to supply it' "$SKILL/references/routing.md" \
+  || bad "routing.md's fallback steps do not set the model on the call"
+grep -qF '# 11. model pin' "$SKILL/references/status.md" || bad "status.md has no model-pin check (11)"
+grep -qF 'CLAUDE_CODE_SUBAGENT_MODEL' "$SKILL/references/bootstrap.md" "$SKILL/references/routing.md" \
+  || bad "the optional settings pin (CLAUDE_CODE_SUBAGENT_MODEL) is not documented"
+pass "Opus 5.5 everywhere: no other model routed to; no scout; fallback, status and settings pin covered"
+
+# 32. 1.8.0 field fixes — each of the five problems has its reference, and the files that act on
+#     it carry the rule, so a later edit cannot drop one half of a fix silently.
+check
+for f in speed visual-reference flows context cycle-card; do
+  [ -f "$SKILL/references/$f.md" ] || bad "references/$f.md is missing"
+done
+# (1) speed: sizing, defaults-first questions, targeted tests, verify once per task, budgets
+grep -qF '## Size every task first — S, M or L' "$SKILL/references/speed.md" || bad "speed.md has no S/M/L sizing section"
+grep -qF '**Size' "$SKILL/SKILL.md" || bad "SKILL.md PLAN step does not size the task"
+grep -qF 'defaults first' "$SKILL/references/responsive.md" || bad "responsive.md does not ask defaults-first"
+grep -qiF 'defaults first' "$SKILL/references/new-project.md" || bad "new-project.md does not ask defaults-first"
+grep -qF '**When it runs — only on a security surface, once per task.**' "$SKILL/references/verifier.md" || bad "verifier.md does not run the critic only on a security surface, once per task"
+grep -qF '## Budget' "$SKILL/references/prompt-spec.md" || bad "prompt-spec.md template has no Budget section"
+grep -qF 'Test (targeted)' "$SKILL/references/bootstrap.md" || bad "bootstrap.md Commands table has no targeted-test row"
+grep -qF 'Run the **targeted** tests and lint the last step names' "$SKILL/agents/dispatch-implementer.md" || bad "dispatch-implementer.md does not run the targeted tests the last step names"
+# (2) image references: repo path, compare loop in the agent and at acceptance, the script flag
+grep -qF '.claude/dispatch/refs/' "$SKILL/references/visual-reference.md" || bad "visual-reference.md does not put references in .claude/dispatch/refs/"
+grep -qF '## Reference images' "$SKILL/agents/dispatch-frontend.md" || bad "dispatch-frontend.md has no Reference images section"
+grep -qF -- '--compare <ref>' "$SKILL/agents/dispatch-frontend.md" || bad "dispatch-frontend.md does not run --compare"
+grep -qF -- '--compare' "$SKILL/references/acceptance.md" || bad "acceptance.md does not compare against the reference image"
+grep -qF -- "'--compare'" "$SKILL/scripts/dispatch-measure.mjs" || bad "dispatch-measure.mjs has no --compare flag"
+grep -qF '.claude/dispatch/shots/' "$SKILL/references/setup.md" || bad "setup.md does not gitignore .claude/dispatch/shots/"
+# (3) backend flows: the map, the brief section, the agent rule, acceptance, the critic row
+grep -qF '## Flows' "$SKILL/references/bootstrap.md" || bad "bootstrap.md's AGENTS.md template has no Flows section"
+grep -qF '## Flow' "$SKILL/references/prompt-spec.md" || bad "prompt-spec.md template has no Flow section"
+grep -qF '## Flows' "$SKILL/agents/dispatch-implementer.md" || bad "dispatch-implementer.md has no Flows section"
+grep -qF '**Then the flows.**' "$SKILL/references/acceptance.md" || bad "acceptance.md has no flow check"
+grep -qF 'A step of a mapped flow' "$SKILL/references/verifier.md" || bad "verifier.md's risk table has no flow row"
+grep -qF 'a job is a vertical slice' "$SKILL/references/routing.md" || bad "routing.md does not define a job as a vertical slice"
+# (4) context: fact rule, briefs on disk, ledger, rotation, resume
+grep -qF '## The fact rule' "$SKILL/references/context.md" || bad "context.md has no fact rule"
+grep -qF 'Say only what this cycle' "$SKILL/SKILL.md" || bad "SKILL.md does not state the fact rule"
+grep -qF '| `/dispatch resume`' "$SKILL/SKILL.md" || bad "SKILL.md mode table has no /dispatch resume row"
+grep -qF '.claude/dispatch/ledger.md' "$SKILL/references/bootstrap.md" || bad "bootstrap.md does not create the ledger"
+grep -qF 'HANDOFF.md' "$SKILL/references/status.md" || bad "status.md does not report a pending handoff"
+grep -qF 'cycle-card.md' "$SKILL/SKILL.md" || bad "SKILL.md does not point routine cycles at the cycle card"
+# (5) the user's words: both brief sections, both agents, the mechanical acceptance check
+grep -qF "## User's words" "$SKILL/references/prompt-spec.md" || bad "prompt-spec.md template has no User's words section"
+grep -qF '## Verbatim — use exactly' "$SKILL/references/prompt-spec.md" || bad "prompt-spec.md template has no Verbatim section"
+for a in dispatch-implementer dispatch-frontend; do
+  grep -qF '## Verbatim text' "$SKILL/agents/$a.md" || bad "$a.md has no Verbatim text rule"
+done
+grep -qF "git grep -n -F -e" "$SKILL/references/acceptance.md" || bad "acceptance.md does not git grep each Verbatim string"
+pass "1.8.0 fixes wired: speed, image references, flows, context rotation, verbatim text"
+
+# 33. 1.9.0 — the big-build layer. Structural checks: files, modes, headings, frontmatter, JSON.
+check
+for f in planning architecture migrations integration audit delivery; do
+  [ -f "$SKILL/references/$f.md" ] || bad "references/$f.md is missing"
+done
+for a in dispatch-migrator dispatch-test-writer dispatch-reviewer; do
+  [ -f "$SKILL/agents/$a.md" ] || bad "agents/$a.md is missing"
+done
+[ "$(find "$SKILL/agents" -maxdepth 1 -name 'dispatch-*.md' | wc -l)" -eq 7 ] || bad "expected 7 agent templates"
+for m in '/dispatch plan' '/dispatch migrate' '/dispatch audit' '/dispatch resume'; do
+  grep -qF "| \`$m" "$SKILL/SKILL.md" || bad "SKILL.md mode table has no row for $m"
+done
+desc=$(printf '%s\n' "$fm" | sed -nE 's/^description: *//p')
+[ "${#desc}" -le 1024 ] || bad "SKILL.md description is ${#desc} chars (limit 1024)"
+for w in 'build' 'ERP' 'new app'; do
+  printf '%s' "$desc" | grep -qiF "$w" || bad "SKILL.md description does not mention '$w' (G18: big-build triggers)"
+done
+for s in '## Cross-cutting checks' '## Delivery capabilities' '## Flows'; do
+  grep -qF "$s" "$SKILL/references/bootstrap.md" || bad "bootstrap.md's AGENTS.md template has no '$s'"
+done
+grep -qF '## Gates' "$SKILL/references/planning.md" || bad "planning.md has no Gates section"
+grep -qF 'restart once' "$SKILL/references/new-project.md" || bad "new-project.md does not install agents before the scaffold (restart once)"
+grep -qF '## Audit briefs' "$SKILL/agents/dispatch-security-critic.md" || bad "dispatch-security-critic.md does not handle audit briefs"
+grep -qF "'--a11y'" "$SKILL/scripts/dispatch-measure.mjs" || bad "dispatch-measure.mjs has no --a11y flag"
+grep -qF "never commit without the user's yes" "$SKILL/SKILL.md" || bad "SKILL.md non-negotiables do not keep commits behind the user's yes"
+grep -qF 'Commit after each accepted task:' "$SKILL/references/integration.md" || bad "integration.md has no standing-yes Checkpoints line"
+if command -v node >/dev/null 2>&1; then
+  node "$ROOT/scripts/build-evals.mjs" --check >/dev/null || bad "evals/evals.json is out of date — run: node scripts/build-evals.mjs"
+  node -e 'const q=require(process.argv[1]); const t=q.filter(x=>x.should_trigger===true).length, f=q.filter(x=>x.should_trigger===false).length; if(t<8||f<8||t+f!==q.length) process.exit(1)' "$ROOT/evals/triggers.json" \
+    || bad "evals/triggers.json needs ≥ 8 should-trigger and ≥ 8 should-not-trigger queries, each with a boolean"
+fi
+pass "1.9.0 big-build layer: plan/migrate/audit/resume modes, 7 agents, map sections, evals.json in sync, trigger set"
+
+# 34. 2.0.0 — only the main session plans; sub-agents follow direct steps; the slow round trips
+#     are narrowed. Each half of each change is checked so a later edit cannot drop it silently.
+check
+# every fenced brief carries a Steps section
+for p in "$SKILL/SKILL.md" "$SKILL"/references/*.md; do
+  miss=$(awk '
+    /^ *```/ { if (inb) { if (isb && !s) m = m " no-Steps@" start; inb = 0 }
+               else { inb = 1; isb = 0; s = 0; first = 1; start = NR } ; next }
+    inb { if (first && $0 != "") { first = 0; if ($0 ~ /^## (Task|Role)([ ]|$)/) isb = 1 }
+          if ($0 == "## Steps") s = 1 }
+    END { print m }' "$p")
+  [ -z "$miss" ] || bad "${p#"$SKILL/"}: a fenced brief has no '## Steps' section (block at line:$miss)"
+done
+# every agent template follows steps and plans nothing
+for f in "$SKILL"/agents/*.md; do
+  a=$(basename "$f" .md)
+  grep -qF 'The planning is already done — by the main session, not you.' "$f" || bad "$a: does not say the planning is already done by the main session"
+  grep -qiE 'phase list|list the phases|phases you planned|report per phase|per phase:|by phase' "$f" && bad "$a: still asks the agent to plan or report phases"
+done
+awk '/^## Non-negotiables/{s=1; next} s && /^## /{s=0} s' "$SKILL/SKILL.md" | grep -qF 'Only you plan.' \
+  || bad "SKILL.md non-negotiables do not say only the main session plans"
+grep -qF '**Only the main session plans. Sub-agents follow direct steps.**' "$SKILL/SKILL.md" || bad "SKILL.md's one rule is not the planning rule"
+grep -qF '## Who does what' "$SKILL/references/prompt-spec.md" || bad "prompt-spec.md has no 'Who does what' table"
+grep -qF '**Stopped at a step**' "$SKILL/references/failures.md" || bad "failures.md does not handle a stop at a step"
+grep -qF 'done differently is a rejection' "$SKILL/references/acceptance.md" || bad "acceptance.md does not check the diff against the steps"
+# the narrowed round trips
+grep -qF '| "Which file does X?"' "$SKILL/references/routing.md" && bad "routing.md still routes 'which file does X' to a scout"
+grep -qF 'The question ceiling — at most 3, across every path' "$SKILL/references/responsive.md" || bad "responsive.md ceiling is not 3"
+grep -rnF '8-question ceiling' "$SKILL" | grep -q . && bad "an 8-question ceiling is still stated in the skill"
+grep -qF '## Verify — only on a security surface' "$SKILL/references/speed.md" || bad "speed.md does not limit the critic to a security surface"
+grep -qF '**Full suite**: size L only' "$SKILL/references/speed.md" || bad "speed.md does not limit the full suite to size L"
+grep -qF '## Rotate the session — only when needed' "$SKILL/references/context.md" || bad "context.md still forces rotation"
+grep -qF 'grep -n -F -e' "$SKILL/references/polish.md" || bad "polish.md does not read the index by grep hits"
+pass "2.0.0: every fenced brief has Steps; agents plan nothing; scout gone; ceiling 3; critic on security surface; full suite L only"
 
 [ "$nfail" -eq 0 ] && { echo "PASS"; exit 0; } || { echo "FAILED ($nfail)"; exit 1; }

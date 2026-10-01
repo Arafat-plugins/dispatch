@@ -5,7 +5,7 @@ more than the edit. The rule is narrow on purpose; the default stays **dispatch*
 
 ## Do it directly when all of these hold
 
-- **≤ ~5 changed lines**, in one file.
+- **≤ ~10 changed lines**, in one file.
 - **You already hold the exact lines** — from a diff you accepted, from the user pasting them,
   from `AGENTS.md`, or from a `grep -n` hit. Read only those lines (Claude Code: `Read` with
   `offset`/`limit` around the `grep -n` line number — its `Edit` refuses a file not yet read
@@ -26,7 +26,7 @@ exactly the context fill this skill avoids. If the user has to see it to say yes
 Still take the baseline, still run the repo's lint/test from `AGENTS.md`, still report
 `Verified` / `Not verified`. Skipping the dispatch does not skip acceptance.
 
-If you find yourself reading the file to work out *where* the five lines go, stop — that is a
+If you find yourself reading the file to work out *where* the lines go, stop — that is a
 dispatch.
 
 **Dependencies.** A version bump of a dependency already present — one line in a manifest or
@@ -51,5 +51,5 @@ the hunk quoted.
 ## Never do directly
 
 - edits that touch generated or vendored paths (`AGENTS.md` names them)
-- anything in a file you would have to read first
+- anything that needs more than the lines around a `grep -n` hit to get right
 - anything where "small" is a guess about a file you have not seen

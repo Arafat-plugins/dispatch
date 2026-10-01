@@ -19,7 +19,7 @@ and `requests/` empty. The tree is clean.
       zero-padded to 3 digits — carrying what was just built, the files involved, what polish
       means here, and what must not change.
 - [ ] Prints the handoff block verbatim: open a second terminal in this repo, start Claude Code
-      at high effort on opus, run `/dispatch polish 003`.
+      on Opus 5.5 at high effort, run `/dispatch polish 003`.
 - [ ] Does not read the request back, does not read `001`'s or `002`'s notes, and does not write
       or edit `INDEX.md` — the polish session appends that line.
 - [ ] Says it will see the result as one index line on the next dispatch, and carries on with its

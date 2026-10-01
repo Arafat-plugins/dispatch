@@ -70,8 +70,8 @@ unsure of. In Claude Code, pass `isolation: "worktree"` to the Agent tool: the s
 on its own branch in its own worktree and reports the path. Elsewhere, create one yourself
 (`git worktree add <path> -b dispatch/<task> <START>`) and name the path in the brief. Record
 `START` first — `git rev-parse HEAD` in your tree; the worktree holds committed state only, so
-commit or leave out what the brief needs from your dirty tree. Review there, merge only after
-acceptance:
+commit or leave out what the brief needs from your dirty tree. Review there; bring it back only
+after acceptance, as [integration.md](integration.md#1-bringing-a-worktree-slice-back) says:
 
 ```bash
 git -C <worktree-path> status --porcelain
@@ -107,6 +107,13 @@ unaffected, and with any file name (`git ls-files` quotes non-ASCII names such a
 `"caf\303\251.css"`, which a `while read` loop cannot pass back to git). List them with
 `git -c core.quotePath=false diff --name-only --diff-filter=A <BASE> <AFTER>`.
 
+**Leave out what you would not judge.** Lockfiles, generated output, snapshots and fixtures
+cost context and prove nothing by being read — exclude them and look at their `--stat` line only:
+
+```bash
+git diff <BASE> <AFTER> -- . ':(exclude)*.lock' ':(exclude)package-lock.json' ':(exclude)<generated dirs from AGENTS.md>'
+```
+
 **Large diff — read in pieces, never whole.** If `--stat` reports more than ~300 changed lines
 or more than ~6 files:
 
@@ -117,6 +124,22 @@ git diff <BASE> <AFTER> -- <path>                       # then: one file at a ti
 
 An oversize diff is itself a finding — the brief was too broad, or the agent went exploring.
 Say so in the verdict; do not read 2,000 lines to find out whether the task got done.
+
+## Your bookkeeping is not the agent's diff
+
+`.claude/dispatch/` holds your own files: the brief, reference images, the ledger, the
+handoff, and shots. Write the brief and references **before** BASE and append the ledger
+**after** AFTER ([context.md](context.md#briefs-live-on-disk--size-m-and-l)). Then nothing under it
+should change between the two snapshots except `shots/`, which is ignored and is the output the
+brief asked for when it names a reference image. Check it with one line:
+
+```bash
+git diff --stat <BASE> <AFTER> -- .claude/dispatch
+```
+
+Empty → fine. A path there that you did not write this cycle is a change by the agent in your
+bookkeeping: a finding, reported first. In the ignored-path check below, new files under
+`.claude/dispatch/shots/` are expected output, not a leak.
 
 ## What the diff cannot see
 
@@ -173,26 +196,56 @@ Use it to eyeball a tree, never in place of the command above.
 
 ## The check
 
-Take the **"Done means"** list from the brief you wrote and go through it line by line. For each:
+Take the **Steps** and the **"Done means"** list from the brief you wrote and go through them
+line by line. Each step is either in the diff as written, missing, or done differently — a step
+done differently is a rejection even when the result looks fine, because the plan was yours. For
+each Done means line:
 confirmed by the diff, contradicted by the diff, or not visible in the diff. The third case is
 not a pass — it means you need a command that shows it:
 
 ```bash
-<the repo's lint command>
-<the repo's test command>
+<the repo's lint command, on the changed files>
+<AGENTS.md → Commands → Test (targeted), for the changed files and the brief's flow test>
 ```
 
-`AGENTS.md` names those. Run them; do not assume.
+`AGENTS.md` names those. Run them **once**; do not assume. The **full** suite runs only for a
+size-L task, after its last dispatch, or when the user asks
+([speed.md](speed.md#tests--targeted-once-each-side)).
 
-**Then the phases.** The footer told the sub-agent to plan numbered phases and report per
-phase. Check that the report has them and that each maps onto a "Done means" line or a briefed
-file. A report with no phase list means the footer was ignored: judge the diff anyway, but say
-so in the verdict, and if it happens twice with the same agent, check the installed agent file
-still carries the template's Report section.
+**Then the cross-cutting checks** the brief copied from `AGENTS.md` → Cross-cutting checks —
+each command run, each result quoted (`a11y: none found`, `12 queries`); a check the brief
+should have carried and did not is a finding against your own brief — add it on the
+re-dispatch.
+
+**Then the flows.** Only when the brief carried a **Flow** section: run the flow test of that
+flow (when `AGENTS.md` → Flows lists one); a red flow test is a rejection whatever else passed
+([flows.md](flows.md#acceptance--the-flow-check)).
+
+## Verbatim text
+
+Every string in the brief's **Verbatim** block must be in the result exactly. Check each one
+mechanically, one line of it at a time, in the AFTER snapshot:
+
+```bash
+git grep -n -F -e '<one line of the verbatim string>' <AFTER> -- <the paths the brief named>
+```
+
+No hit → **rejection**: quote the Verbatim line and what the diff has instead (`git diff <BASE>
+<AFTER> | grep -n '<a distinctive word from it>'`). A string that the file format must escape —
+an apostrophe inside a single-quoted PHP string, `&` in HTML, a newline in JSON — appears in its
+escaped form; search for that form and say so in the verdict. A rewording, a "fixed" typo, a
+changed capital, a translated word is a rejection even when the new text reads better: the user
+chose those words.
+
+**Then the report shape.** The footer told the sub-agent to follow your steps and report per
+step. A report that describes its own plan, extra steps, or changes no step asked for means the
+footer was ignored: judge the diff anyway, reject any unbriefed change, and if it happens twice
+with the same agent, check the installed agent file still carries the template's paragraph after the footer line
+("The planning is already done…") and its Report section.
 
 ## Beyond the checklist
 
-Five things a checklist does not catch, worth a look every time:
+Six things a checklist does not catch, worth a look every time:
 
 1. **Files outside the brief.** Anything edited *or created* that the brief did not name is
    scope creep. `git status --porcelain` is the complete list; compare it to Inputs. Reject it,
@@ -206,7 +259,13 @@ Five things a checklist does not catch, worth a look every time:
    ```
 4. **Self-reported verification.** "Verified at 375px" in the report is a claim. Rendering
    claims from a sub-agent without browser tools are reading, not measuring — see below.
-5. **Colours and breakpoints outside `DESIGN.md`.** A UI diff that introduces a colour or a
+5. **The map.** A diff that adds or removes a route, page, top-level directory, flow step,
+   command or module must carry the matching `AGENTS.md` (or module map) hunk the brief asked
+   for — a new route with no Surfaces row is a rejection
+   ([integration.md](integration.md#3-keeping-agentsmd-current--map-upkeep-in-the-brief)). A hunk
+   that breaks a rule the brief cited from `ARCHITECTURE.md` / `DOMAIN.md` is a rejection that
+   quotes the rule ID ([architecture.md](architecture.md)).
+6. **Colours and breakpoints outside `DESIGN.md`.** A UI diff that introduces a colour or a
    breakpoint `DESIGN.md` does not define is a finding — reject it, even when it looks right.
    Check the added lines only:
    ```bash
@@ -255,6 +314,11 @@ says what this repo can render with (**[setup.md](setup.md)**). Use what it reco
 - **Rendering: none**, or no section → every width is `Not verified: rendering (no browser
   available)`. That is an honest result; a green tick without a measurement is not.
 
+**Reference image in the brief** → also run `--compare` at each reference width and **open the
+composite** it writes; judge structure versus content as
+**[visual-reference.md](visual-reference.md#5-acceptance--yours)** says. The `% differ` is a
+trend across the agent's passes, never a pass mark on its own.
+
 The script starts nothing. **Exit 2** (`dev server not reachable at <url>`): start the server
 with the command *Verification capabilities* records — in the background, stopped when you are
 done — or ask the user to, then re-run. Exit 2 with `redirected to <final url>` means the page
@@ -266,22 +330,24 @@ script is plain Node 18+; any runtime with a shell runs it the same way.
 
 ## The verdict
 
-**Accept** — say plainly what landed, then move to verify. Polish left over after an accepted
+**Accept** — say plainly what landed, append the ledger line, then the next dispatch — or, after
+the task's last one, the end-of-task run (full suite for size L, verify on a security surface). Polish left over after an accepted
 change is not another dispatch and not yours: write the request and hand it to the second
 session — **[polish.md](polish.md)**.
 
 **Reject** — re-dispatch. The rejection brief carries:
 - the original brief, unchanged
-- what specifically failed, quoted from the diff
-- what "correct" looks like for that item
+- what specifically failed, quoted from the diff, and which step it was
+- the corrected step, written out as exactly as the original steps
 
 **Do not fix it yourself.** Hand-fixing pulls the file contents into your context, which is the
 exact cost this whole skill exists to avoid. It also hides the failure — the next dispatch on
 this repo repeats it. The single exception — a one-token fix entirely visible in the diff you
 already read — is defined in **[when-not-to-dispatch.md](when-not-to-dispatch.md)**.
 
-Two rejections on one brief: stop re-dispatching. The brief is the problem. Rewrite the spec
-from **[prompt-spec.md](prompt-spec.md)**, with the failures as new "Out of scope" lines.
+Two rejections on one brief: stop re-dispatching. The steps are the problem. Re-locate
+(`grep -n`, the lines around the hit) and rewrite the steps from
+**[prompt-spec.md](prompt-spec.md)**, with the failures as new "Out of scope" lines.
 
 **Three failures — the rewritten brief failed too — stop.** Escalate per
 **[failures.md](failures.md)**. Do not dispatch a fourth time without the user's direction.

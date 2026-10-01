@@ -19,24 +19,32 @@ Concrete signals, not vibes:
 
 None of these hold → this is a normal dispatch. Plan from `AGENTS.md` as usual.
 
-## Intake — one question at a time
+## Intake — three questions at most
 
-Before you write anything, gather enough to plan. In Claude Code, use `AskUserQuestion` with
-**a single question per call**, 2-4 concrete options — the user can always type their own
-answer, and "you decide" is a legitimate option where sensible. Where that tool does not exist,
-ask in plain text, one question per message, same discipline. Wait for the answer, then ask the
-next. **Never batch** — same rule as [responsive.md](responsive.md).
+Before you write anything, gather enough to plan — in **at most three questions**, one question
+per message. In Claude Code, use `AskUserQuestion` with a single question per call and 2-4
+concrete options ("you decide" is a legitimate option); elsewhere ask in plain text. Never batch
+separate questions into one message.
 
-Skip anything the user already said unprompted. **Stop as soon as you have enough to plan** —
-this is intake, not an interrogation; most projects need fewer than all ten questions.
+1. **Purpose and users** — no default; ask it (skip if the user already said).
+2. **MVP scope** — no default; ask it (skip if the user already said).
+3. **Everything else, defaults first** ([speed.md](speed.md#questions--one-defaults-first-message-at-most))
+   — stack, hosting, auth, integrations, design direction: propose a default for each from what
+   the user already said and post them as **one** confirmation ("unless you change a line:
+   Laravel + Inertia, Postgres, email login, no payments in v1 … say *go*"). A *go* settles all
+   of them; a correction replaces that line and asks nothing new.
 
-**The 8-question ceiling applies here too, and it counts across paths.** The ten below, plus
-responsive.md's five and setup.md step d's three, is roughly twenty messages before anything is
-built. At most **8 questions total** for the whole task; on reaching it, state the remaining
-unknowns with a proposed default for each and proceed on one confirmation. The rule and the
-wording of that message are in [responsive.md](responsive.md#the-question-ceiling--at-most-8-across-every-path).
+**A spec already exists** (the user attached or named a requirements document, master prompt or
+client spec) → do not run the intake. Write `PROJECT_BRIEF.md` from the document, list only the
+gaps it leaves as defaults, and ask for one confirmation.
 
-Suggested order:
+**The 3-question ceiling counts across paths** — this intake, responsive.md's points and
+setup.md step d share it. Responsive and design points go into the same defaults-first message
+as item 3, not into questions of their own
+([responsive.md](responsive.md#the-question-ceiling--at-most-3-across-every-path)).
+
+Topics 1 and 4 below are intake items 1 and 2, asked on their own when not already answered;
+topics 2, 3 and 5–10 go into the defaults-first message. Suggested order:
 
 1. **Purpose and users** — "What is this for, and who uses it?"
 2. **Platform** — "Web app / mobile app / desktop app / API / CLI?"
@@ -44,15 +52,17 @@ Suggested order:
 4. **MVP scope** — "What must v1 do? And what should explicitly wait — not in v1?"
 5. **Data and auth** — "Does it store data? Do users log in?"
 6. **Look and feel** — "Any design direction — a reference site, a vibe, brand colours?" UI
-   project → continue straight into [responsive.md](responsive.md)'s questions.
+   project → add [responsive.md](responsive.md)'s points to the same defaults-first message.
 7. **Integrations** — "Any third-party services — payments, email, external APIs?"
 8. **Hosting** — "Where should this run once it's built?"
 9. **Constraints** — "Deadline, budget, languages to support (e.g. Bangla + English),
-   performance or accessibility requirements?"
+   performance or accessibility requirements?" — the answers become `AGENTS.md` → Cross-cutting
+   checks at bootstrap, each with its command, and the budget becomes the gate roll-up's yardstick
+   ([planning.md](planning.md#usage-roll-up))
 10. **Definition of done** — "How will you judge v1 is done — a demo, a checklist, a launch?"
 
-Each option list above is a starting point, not a script — phrase the options to fit what the
-user already said.
+Each topic above is a starting point, not a script — propose the default that fits what the
+user already said, and skip what they already answered.
 
 ## Confirm before building
 
@@ -68,18 +78,35 @@ for every dispatch brief that follows; do not re-derive it from memory later.
    only the brief, and run it on a yes — this skill never commits on its own:
    ```bash
    git add PROJECT_BRIEF.md && git commit -m "chore: project brief"
-   git rev-parse HEAD                                  # BASE for the scaffold dispatch
+   git rev-parse HEAD                                  # the repo now has a HEAD
    ```
    On a no, ask the user to make any first commit; do not dispatch the scaffold without one.
-1. **Scaffold** the project — a heavy/core task, so per [routing.md](routing.md#model-selection)
-   this runs at `opus`. This dispatch is **exempt from SKILL.md's "no map, no dispatch" rule**:
-   there is nothing to map yet. Its brief's Knowledge line reads "Read `PROJECT_BRIEF.md` at
-   the repo root first; there is no `AGENTS.md` yet", and its Inputs name the directories and
-   files the scaffold may create. Acceptance runs as usual, against that BASE.
-2. Run **`/dispatch bootstrap`** so `AGENTS.md` exists before any feature dispatch —
+   This commit's sha is not the scaffold's BASE — step 3 takes that.
+1. **Plan** — `/dispatch plan` ([planning.md](planning.md)): requirement IDs in
+   `PROJECT_BRIEF.md`, then `ROADMAP.md` (phases, gates), `ARCHITECTURE.md` and `DOMAIN.md`
+   ([architecture.md](architecture.md)), each shown as a diff and confirmed.
+2. **Install the agent templates now, and restart once.** Run bootstrap's Step 0 and Step 3
+   alone, choosing templates from `PROJECT_BRIEF.md`'s stack rather than from the (still empty)
+   repo — a planned database means `dispatch-migrator`, planned tests mean
+   `dispatch-test-writer` — and create the ledger. Then propose **one commit** holding the plan
+   files and `.claude/agents/` (a second commit — never an amend), write
+   `.claude/dispatch/HANDOFF.md` with `Next: scaffold P0` ([context.md](context.md)), and ask the
+   user to restart the session (or run `/agents`). Templates installed mid-session are not
+   selectable until then; doing it once, here, means the scaffold and every brief after it use
+   the named agents. After the restart, `/dispatch resume` picks up from the handoff.
+3. **Scaffold** phase P0's foundations only — on Opus 5.5, as every dispatch
+   ([routing.md](routing.md#model-selection)). This dispatch is **exempt from SKILL.md's "no
+   map, no dispatch" rule**: there is nothing to map yet. Its brief's Knowledge line reads "Read
+   `PROJECT_BRIEF.md`, `ARCHITECTURE.md` and the P0 block of `ROADMAP.md`; there is no
+   `AGENTS.md` yet", and its Inputs name the directories and files the scaffold may create.
+   Take BASE **now**, right before this dispatch (`git rev-parse HEAD` after step 2's commit),
+   so the plan files and templates are not in the scaffold's diff. Acceptance runs as usual.
+4. Run **`/dispatch bootstrap`** so `AGENTS.md` exists before any feature dispatch —
    [bootstrap.md](bootstrap.md) reads `PROJECT_BRIEF.md` for "What this project is" when there
-   is no code yet to survey.
-3. Split the build into dispatches as normal, respecting the
-   [2-concurrent-sub-agent cap](routing.md#concurrency-cap). A UI feature still asks the
-   responsive questions from responsive.md if `PROJECT_BRIEF.md`'s "Look and feel" answer did
-   not already cover them.
+   is no code yet to survey, and writes Flows, Cross-cutting checks and Delivery capabilities
+   from the plan.
+5. **Build phase by phase**, the briefs `ROADMAP.md` lists, respecting the
+   [2-concurrent-sub-agent cap](routing.md#concurrency-cap), each phase ending at its gate
+   ([planning.md](planning.md#gates--the-user-signs-off-phase-by-phase)). A UI feature still
+   settles responsive behaviour per responsive.md if `PROJECT_BRIEF.md`'s "Look and feel" did
+   not already cover it.

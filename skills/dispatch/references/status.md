@@ -36,6 +36,12 @@ test -f DESIGN.md && echo design-md
 test -f .claude/dispatch/polish/INDEX.md \
   && awk '/^### /{n++} END{print "polish: index present, " n+0 " entries"}' .claude/dispatch/polish/INDEX.md \
   || echo "polish: no index — not set up here, or polish has never run"
+# 11. model pin — every installed agent's model: line, and the repo's settings
+find .claude/agents -maxdepth 1 -name '*.md' -exec grep -H '^model:' {} + 2>/dev/null
+grep -hE '"(model|CLAUDE_CODE_SUBAGENT_MODEL)"' .claude/settings.json 2>/dev/null
+# 12. work in flight — the ledger's last line and a handoff note, never the briefs themselves
+tail -n 1 .claude/dispatch/ledger.md 2>/dev/null
+test -f .claude/dispatch/HANDOFF.md && sed -n '2,3p' .claude/dispatch/HANDOFF.md
 ```
 
 **The probe's `DISPATCH_PYTHON` prefix.** If this repo's *Verification capabilities* →
@@ -52,13 +58,15 @@ was written by an older skill version — report it under State, not under Polis
 | Check | Green | Not green — report as |
 | --- | --- | --- |
 | Map | `AGENTS.md` present **with** marker | absent → "not bootstrapped"; present without marker → "foreign AGENTS.md — bootstrap will append a dispatch section, not overwrite" |
-| Agents | each of the four roles (implement, frontend, db, critic) covered by some agent, and each file among the agents the runtime has loaded | list the uncovered roles. A file on disk that the runtime's agent list does not offer (Claude Code: the Agent tool's list of agent types) → "not loaded — restart or `/agents`"; no such list to compare, but the file is newer than `.claude/.dispatch-state.json` → "edited since bootstrap/setup — a restart may be needed to load it" |
+| Agents | each role (implement, frontend, db, critic; plus migrator, test-writer, reviewer on a project with a database, tests or a ROADMAP) covered by some agent, and each file among the agents the runtime has loaded | list the uncovered roles. A file on disk that the runtime's agent list does not offer (Claude Code: the Agent tool's list of agent types) → "not loaded — restart or `/agents`"; no such list to compare, but the file is newer than `.claude/.dispatch-state.json` → "edited since bootstrap/setup — a restart may be needed to load it" |
 | State file | present, `version` equals this skill's `metadata.version` | absent → bootstrap did not finish, or the file is gitignored on this clone; older version → "re-run bootstrap to upgrade the map" |
 | Layout drift | 0 added/deleted/renamed paths under directories the Layout table names | list them; any directory that appears or disappears means the map is wrong for it |
 | Baseline age | `baseline_measured` within 30 days, or `not measured` with a reason | "known-failing baseline is N days old — re-measure" (bootstrap Step 2b) |
 | CLAUDE.md | absent, or contains a pointer to `AGENTS.md` | "CLAUDE.md does not point sub-agents at AGENTS.md" |
 | Working tree | clean | "N uncommitted paths — commit, stash, or snapshot before the first dispatch (acceptance.md)" |
 | Capabilities | *Verification capabilities* present and `capabilities_measured` set | absent → ❌ "not provisioned — `/dispatch setup`"; otherwise one line per capability, below |
+| Model pin | every `dispatch-*` agent says `model: claude-opus-5-5`; settings pin present | an agent on another model → "`<file>` is on `<model>` — dispatches still pass Opus 5.5 per call; set `model: claude-opus-5-5` to match"; an `opus`/`sonnet`/`haiku`/`fable` alias there → same; no settings pin → ⚠️ "session and un-briefed sub-agents are not pinned — bootstrap Step 3 offers it" |
+| In flight | no `HANDOFF.md`, or its task is already accepted in the ledger | `HANDOFF.md` names an open task → "a rotated session left work in flight — `/dispatch resume`"; no ledger → "no ledger — re-run `/dispatch bootstrap` (Step 3 creates it)" |
 | Polish | `INDEX.md` present; report the entry count | absent → "not set up — re-run `/dispatch bootstrap`, or it has simply never run here"; present with 0 entries → "set up, no polish runs yet" |
 
 After the checks above, report each line of *Verification capabilities* as ✅ / ⚠️ / ❌ with
@@ -78,8 +86,9 @@ A repo with rendering = none and a frontend framework present is ⚠️, with th
 
 ```
 Map:        AGENTS.md, dispatch marker present, bootstrapped 2026-09-01 at 3f2a9c1
-Agents:     implementer ✓  frontend ✓  db-tester ✓  critic ✓   (4 in .claude/agents/)
-State:      version 1.6.0 (current)
+Agents:     implementer ✓ frontend ✓ db-tester ✓ critic ✓ migrator ✓ test-writer ✓ reviewer ✓  (7 in .claude/agents/)
+Models:     all 7 on claude-opus-5-5; settings pin ✓
+State:      version 2.0.0 (current)
 Drift:      12 commits since bootstrap; 0 layout changes
 Baseline:   measured 2026-09-01 (14 days) — 11 failing
 CLAUDE.md:  linked
@@ -89,6 +98,7 @@ Capabilities (measured 2026-09-01):
   ⚠️ Rendering      none — UI briefs will be accepted as *Not verified* for every width until this is set up. Fix: /dispatch setup
   ✅ Design source  DESIGN.md
   ❌ Database       postgres, no read-only user. Fix: run the SQL from /dispatch setup (step e)
+Ledger:     last 014 pricing-hero accepted; no handoff pending
 Polish:     index present, 9 entries (.claude/dispatch/polish/INDEX.md)
 Next:       /dispatch setup
 ```
@@ -98,13 +108,16 @@ Next:       /dispatch setup
 In priority order — the first that applies is the `Next:` line:
 
 1. No map, or foreign map → `/dispatch bootstrap`
-2. State version older than the skill → `/dispatch bootstrap` (re-run upgrades the region between the markers)
-3. Layout drift → `/dispatch bootstrap` (re-run; show the AGENTS.md diff first)
-4. Baseline older than 30 days or `not measured` → re-measure (bootstrap Step 2b alone)
-5. Uncovered agent role → install that template (bootstrap Step 3 alone)
-6. Capabilities absent, or any ❌ / ⚠️ → `/dispatch setup` (for a database ❌, the SQL it prints)
-7. Dirty tree → commit or snapshot, then dispatch
-8. Otherwise → `/dispatch <task>`
+2. `HANDOFF.md` names an open task → `/dispatch resume`
+3. State version older than the skill → `/dispatch bootstrap` (re-run upgrades the region between the markers)
+4. Layout drift → `/dispatch bootstrap` (re-run; show the AGENTS.md diff first)
+5. Baseline older than 30 days or `not measured` → re-measure (bootstrap Step 2b alone)
+6. Uncovered agent role → install that template (bootstrap Step 3 alone)
+7. An installed agent on a model other than `claude-opus-5-5`, or no settings pin → bootstrap
+   Step 3's model pin (propose; the user's yes)
+8. Capabilities absent, or any ❌ / ⚠️ → `/dispatch setup` (for a database ❌, the SQL it prints)
+9. Dirty tree → commit or snapshot, then dispatch
+10. Otherwise → `/dispatch <task>`
 
 Status never writes anything and never installs anything — the probes above only read. It says
 what to run; the user runs it.

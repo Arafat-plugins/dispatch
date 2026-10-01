@@ -25,13 +25,13 @@ scoped "main session" there:
 
 | `SKILL.md` non-negotiable | In the polish session |
 | --- | --- |
-| read `INDEX.md` and nothing else from that directory | you read and write that whole directory, `requests/` included — it is your workspace |
+| read only `grep` hits in `INDEX.md` for the briefed paths, nothing else from that directory | you read and write that whole directory, `requests/` included — it is your workspace |
 | never polish here, never dispatch polish | polishing **is** the job; you still dispatch nothing |
 | never more than 2 sub-agents at once | you run none at all |
 | never let a sub-agent decide *what* and *whether it worked* | no sub-agents; the user decides both, with you |
 
 **Every other non-negotiable still binds you**: never commit, never push, never auto-fix a
-finding, never edit `AGENTS.md`, and the baseline-and-diff discipline below. The 8-question
+finding, never edit `AGENTS.md`, and the baseline-and-diff discipline below. The 3-question
 ceiling does not apply here either — see "Working with the user".
 
 ## Layout
@@ -40,7 +40,7 @@ Bootstrap creates both directories and seeds the index (bootstrap.md, Step 3):
 
 | Path | Who writes it | Who reads it |
 | --- | --- | --- |
-| `.claude/dispatch/polish/INDEX.md` | the polish session | the main session, every dispatch |
+| `.claude/dispatch/polish/INDEX.md` | the polish session | the main session, `grep` hits only, before a brief |
 | `.claude/dispatch/polish/<NNN>-<slug>.md` | the polish session | the main session, at most one, on a reason |
 | `.claude/dispatch/polish/requests/<NNN>-<slug>.md` | the main session | the polish session, the named one |
 
@@ -65,26 +65,17 @@ human or by a main session that has a specific reason to open it.
 
 This is the point of the feature. It is a non-negotiable, not a preference.
 
-- **Before planning any dispatch** — `<task>`, `deps`, `verify`, `db` — read
-  `.claude/dispatch/polish/INDEX.md` and **nothing else** from that directory. Titles,
-  two-line summaries and `touches:` lines are all you are allowed to hold.
+- **Before a brief** — `<task>`, `deps`, `db` — `grep` `.claude/dispatch/polish/INDEX.md` for
+  each path or surface the brief will edit, and read **nothing else** from that directory. The
+  hits (a `touches:` line, a title) are all you hold. No hit → nothing polish did is in the way;
+  carry on.
 
   ```bash
-  cat .claude/dispatch/polish/INDEX.md 2>/dev/null
+  grep -n -F -e '<briefed path 1>' -e '<briefed path 2>' .claude/dispatch/polish/INDEX.md 2>/dev/null
   ```
 
-- **A long index is read through a window, not whole.** The index grows by four lines per
-  polish, so past ~40 entries `cat` is no longer cheap. This prints everything above the first
-  entry plus the **40 most recent** entries, in one pass, and is safe on a short index too:
-
-  ```bash
-  awk '/^### /{n++} {L[NR]=$0; k[NR]=n} END{for(i=1;i<=NR;i++) if(k[i]==0 || k[i]>n-40) print L[i]}' \
-    .claude/dispatch/polish/INDEX.md 2>/dev/null
-  ```
-
-  The older entries are still reachable without reading the file: `grep '^### ' INDEX.md` lists
-  every heading and nothing else, and a heading gives you the number. Only go back for one when
-  a heading names what this brief touches.
+  A hit's entry heading is the nearest `### ` line above it (`grep -n '^### '
+  .claude/dispatch/polish/INDEX.md` lists them), and the heading gives you the number.
 
 - **Open exactly one full note**, and only when a title, a summary or a `touches:` item names a
   file, a surface or a behaviour the current brief touches, or the user points you at it. Name
@@ -186,7 +177,8 @@ with the detail this whole file exists to keep out.
    ```
    Polish goes to a second session, not to me — a separate context, so mine stays on the build.
 
-   Open a new terminal in this repo, start Claude Code at high effort on opus, and run:
+   Open a new terminal in this repo, start Claude Code on Opus 5.5 at high effort
+   (`claude --model claude-opus-5-5`), and run:
 
        /dispatch polish <NNN>
 
@@ -210,8 +202,8 @@ files, you talk to the user directly. You dispatch nothing.
 3. Work with the user. They supply further references and prompts as you go; ask when the ask is
    ambiguous, one question at a time.
 
-**Working with the user — the 8-question ceiling does not apply here.** That ceiling
-([responsive.md](responsive.md#the-question-ceiling--at-most-8-across-every-path)) bounds an
+**Working with the user — the 3-question ceiling does not apply here.** That ceiling
+([responsive.md](responsive.md#the-question-ceiling--at-most-3-across-every-path)) bounds an
 *intake*: questions asked before any work, to a user waiting for it to start. This session is
 the opposite — the user is in the loop, looking at the thing, and each question follows an edit
 they just saw. Keep asking as long as the work does, **one question per message**, never
@@ -293,7 +285,7 @@ the cost this whole file exists to avoid.
 
 - polish inside the main session, or as a sub-agent of it — the point is a separate context, not
   an isolated one
-- read more than `INDEX.md` from the polish directory without a named reason
+- read more than `grep` hits in `INDEX.md` from the polish directory without a named reason
 - read `requests/`, or edit the index
 
 **The polish session:** dispatch a sub-agent, edit `AGENTS.md`, or commit.

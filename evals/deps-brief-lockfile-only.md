@@ -13,7 +13,7 @@ dependency, to stream rows without hand-rolled quoting."
       and does not count it as a failure.
 - [ ] Asks the user first, in one message: package, constraint, runtime vs dev, why, and the
       files it changes. Nothing is installed before the yes.
-- [ ] Dispatches `dispatch-implementer` at `sonnet`, stating the model and reason.
+- [ ] Dispatches `dispatch-implementer` on Opus 5.5 (`claude-opus-5-5` on the call), stating the model in the plan.
 - [ ] The brief's Task line opens with `Dependency brief (dependencies.md):`, so the implementer
       does not stop on its own "do not add a dependency" rule.
 - [ ] The brief's Inputs are `package.json` and `package-lock.json` only; Target names

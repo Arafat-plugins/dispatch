@@ -1,0 +1,22 @@
+[
+  {"query": "build me an ERP for my trading company — inventory, sales, purchase and accounts, laravel if possible", "should_trigger": true},
+  {"query": "I want to start a new web app for booking salon appointments, can you plan and build it?", "should_trigger": true},
+  {"query": "we have a 40 page spec for a school management system, build it phase by phase", "should_trigger": true},
+  {"query": "delegate this refactor of the billing module to sub-agents and check their diffs", "should_trigger": true},
+  {"query": "my context keeps filling up when you edit files, can we have subagents do the edits instead", "should_trigger": true},
+  {"query": "/dispatch fix the overflow on the product grid at 375px", "should_trigger": true},
+  {"query": "make our pricing section look exactly like this screenshot, the repo is already set up with AGENTS.md", "should_trigger": true},
+  {"query": "add a discount field that flows through order → invoice → payment without breaking anything", "should_trigger": true},
+  {"query": "plan the roadmap and phases for rebuilding our HR portal as a SaaS", "should_trigger": true},
+  {"query": "orchestrate the migration of our website from php templates to next.js with multiple agents", "should_trigger": true},
+  {"query": "what's the difference between a sub-agent and a skill in claude code?", "should_trigger": false},
+  {"query": "explain how database migrations work in laravel", "should_trigger": false},
+  {"query": "write a python one-liner to rename all .jpeg files to .jpg", "should_trigger": false},
+  {"query": "review this pull request description for tone", "should_trigger": false},
+  {"query": "make me a slide deck about our Q3 sales numbers", "should_trigger": false},
+  {"query": "what is an ERP system and which open-source ones are popular?", "should_trigger": false},
+  {"query": "fix the typo in this paragraph: 'recieve the package tommorow'", "should_trigger": false},
+  {"query": "design a logo concept for a coffee shop called Bean There", "should_trigger": false},
+  {"query": "summarise this meeting transcript into action items", "should_trigger": false},
+  {"query": "how do I set up a cron job on ubuntu to back up my postgres database?", "should_trigger": false}
+]

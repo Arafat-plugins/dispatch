@@ -1,4 +1,4 @@
-# New project intake one question at a time
+# New project intake: three questions at most, defaults first
 
 ## Setup
 An empty repo — no source files, no `AGENTS.md`, no `PROJECT_BRIEF.md`. Just a `.git` directory
@@ -10,17 +10,14 @@ and nothing else.
 ## Expected behaviour
 - [ ] Recognises this as a heavy new project (empty repo, "build me a `<thing>`" with no
       existing code) under references/new-project.md, not a normal dispatch cycle.
-- [ ] Runs intake using `AskUserQuestion` with **one question per call**, 2-4 concrete options
-      (e.g. "Platform: web app / mobile app / desktop app / API?"), and does **not** batch
-      several questions into one call or one message.
-- [ ] Waits for each answer before asking the next, follows the suggested order (purpose/users,
-      platform, stack, MVP scope, data/auth, look and feel, integrations, hosting, constraints,
-      definition of done), and skips any question already answered unprompted (here: the
-      audience and the Bangla + English language constraint were already given).
-- [ ] Stops asking once there is enough to plan — does not interrogate through all ten questions
-      when fewer suffice.
-- [ ] If the "look and feel" answer indicates a UI, continues into responsive.md's
-      one-question-at-a-time questions rather than skipping responsive scope.
+- [ ] Asks at most **three** questions, one question per message (`AskUserQuestion` with one
+      question per call): purpose/users only if not already given (here the audience was
+      given, so it is skipped), MVP scope, then **one** defaults-first message proposing
+      platform, stack, data/auth, look and feel, responsive behaviour, integrations, hosting,
+      constraints (Bangla + English already given) and definition of done — "say go, or correct
+      any line".
+- [ ] Does **not** batch separate questions into one message, and does not ask a fourth
+      question; a correction to a default replaces that line without new questions.
 - [ ] Summarises the answers as a short project brief and asks for explicit confirmation before
       scaffolding anything.
 - [ ] On a yes, saves the brief as `PROJECT_BRIEF.md` at the repo root, with a section matching
@@ -29,6 +26,6 @@ and nothing else.
       no `HEAD` yet), runs it only on a yes, and records `git rev-parse HEAD` as BASE; the
       scaffold dispatch is the one allowed before `AGENTS.md` exists, and its brief reads
       `PROJECT_BRIEF.md` instead.
-- [ ] Scaffolds the project at `model: opus` (heavy/core work per routing.md), then runs
+- [ ] Scaffolds the project on Opus 5.5 (`claude-opus-5-5`, as every dispatch per routing.md), then runs
       `/dispatch bootstrap` before any feature dispatch, and respects the 2-concurrent-sub-agent
       cap when splitting the build.

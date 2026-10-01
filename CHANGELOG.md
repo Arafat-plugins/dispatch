@@ -1,5 +1,239 @@
 # Changelog
 
+## 2.0.0 — 2026-10-01
+
+**Only the main session plans; sub-agents follow direct steps.** And the round trips that made a
+five-minute task take an hour are removed or narrowed. Unchanged: Opus 5.5 at `effort: high` for
+every sub-agent, the 2-concurrent cap, BASE/AFTER acceptance owned by the main session,
+Verbatim text, Playwright measuring and `--compare` on both sides, and nothing committed without
+a yes or pushed.
+
+**Breaking — the brief is a list of numbered direct steps**
+- New `## Steps` section in every brief (prompt-spec.md, cycle card, and the deps, migration,
+  db, critic and audit briefs): `In <file>, in <function/selector> (around line N), change X to
+  Y`, one change per step, the last step the check commands. Written by the main session.
+- New footer, replacing the phase-planning one (SKILL.md → The mandatory footer); it ends every
+  brief, verbatim.
+- All seven agent templates: "The planning is already done — by the main session, not you."
+  No phase lists, no extra steps, no change no step names; stop at a step that cannot be done as
+  written. Worker reports are ≤ 20 lines, per step.
+- The main session may read ≈ 60 lines around a `grep -n` hit to write a precise step (it still
+  never reads whole files). A stop at a step is a wrong step, fixed and re-dispatched — not a
+  failure (failures.md, case 3).
+- Acceptance checks each step: a change no step asked for is a rejection; a rejection carries the
+  corrected step written out.
+
+**Narrowed or removed for speed** (speed.md rewritten)
+- **Scout sub-agent: removed.** Locating is planning; the main session greps.
+- **Questions: one defaults-first message, ceiling 3 per task** (was one at a time, ceiling 8).
+  Small UI fixes with obvious responsive behaviour ask nothing. New-project intake: purpose,
+  MVP scope, then one defaults-first confirmation.
+- **Full suite: size L only**, or on the user's ask (was once per task, S included).
+- **Security critic: only when the diff touches a security surface** — auth, permissions,
+  payments, secrets, input handling, queries, uploads, data writes (was every task except pure
+  CSS/docs). `/dispatch verify` still always runs.
+- **Test-first and flow tests: only when a step asks** (was every logic brief); the flow check
+  at acceptance runs only the flow the brief carried.
+- **Brief files on disk: size M and L only**; S keeps just its ledger line.
+- **Session rotation: only after a compaction or when unsure**; at ~10 dispatches or a phase end
+  it is suggested in one line, not forced.
+- **Polish index: `grep` hits for the briefed paths** before a brief, instead of reading the
+  index every dispatch.
+- **Direct edits by the main session: up to ~10 lines in one file** you already hold (was 5).
+- **Budgets: ~15 / 40 / 80 tool calls** for S / M / L (was 25 / 60 / 120).
+
+**Packaging**
+- `main` now carries the full tree (1.9.0 lived only as a changed-files zip in `docs/`, missing
+  three files its `SKILL.md` links to). Upload to claude.ai with a zip whose top folder is
+  `dispatch/` holding `SKILL.md` — see README → Install.
+
+## 1.9.0 — 2026-09-27
+
+The big-build layer: every gap in `docs/GAP-ANALYSIS-big-projects.md` now has a fix (status
+table at the top of that file). Unchanged: the footer, Opus 5.5 at `effort: high` for every
+sub-agent, the 2-concurrent cap, acceptance being the main session's, and nothing deployed or
+pushed by the skill.
+
+**Plan, phases, gates — `/dispatch plan`, new `references/planning.md`** (G1, G17)
+- Requirement IDs in `PROJECT_BRIEF.md`; `ROADMAP.md` (≤ 250 lines) with vertical-slice phases,
+  dependencies, planned briefs, exit criteria and a gate question; read by table + current block.
+- Gates: full suite + flows, worktree slices back, checkpoint commit proposed, reviewer pass,
+  `/dispatch audit`, usage roll-up from the ledger (against an optional budget), then the gate
+  message and an explicit "pass"; the session rotates at every gate.
+
+**Architecture and domain — new `references/architecture.md`** (G4)
+- `ARCHITECTURE.md` (modules, layers, data model, API conventions, cross-cutting, never),
+  `DOMAIN.md` (glossary, `BR-nn` rules each with a test, permission matrix, state machines),
+  `docs/adr/`. Briefs cite by section and ID; agents read only cited parts and stop on a
+  contradiction; acceptance rejects a hunk that breaks a cited rule.
+
+**Migrations — `/dispatch migrate`, new `references/migrations.md`, new `dispatch-migrator`** (G6)
+- Kinds (additive, constraining, destructive, data, privileges) with their own Done means;
+  migrate → rollback → migrate on the dev database, quoted; applied migrations never edited;
+  destructive steps only on the user's yes; production never touched.
+
+**New roles** (G11, G12): `dispatch-test-writer` (tests only, fail-first, E2E with the repo's
+runner), `dispatch-reviewer` (once per gate: layering, rule/permission drift, queries — findings
+only); routing rows for delivery, docs, performance, ETL, i18n and a11y briefs. Seven templates,
+all `model: claude-opus-5-5`, `effort: high`.
+
+**Integration — new `references/integration.md`** (G7, G8, G9)
+- Worktree slices come back with `git diff --binary | git apply` plus an integration test run.
+- Checkpoint commits are proposed after each task and at gates, run on the user's yes — or a
+  standing yes the user writes in `AGENTS.md` → Checkpoints. Never a push. The non-negotiable now
+  reads "never commit without the user's yes".
+- Map upkeep: a brief that adds a route, flow step, command or module updates its `AGENTS.md` row;
+  acceptance rejects a missing row. Past ~60 surfaces / 8 flows / 6 modules, module maps.
+
+**Audit — `/dispatch audit`, new `references/audit.md`** (G13): `THREAT-MODEL.md` (≤ 120 lines)
+and a module-wide critic brief — entry-point table (auth + permission per route, export, job),
+tenant scoping, named risks, dependency advisories. A high finding blocks the gate.
+
+**Delivery — new `references/delivery.md`** (G14): *Delivery capabilities* in `AGENTS.md`; CI,
+env config, deploy kit, backup/restore, runbooks and cutover as briefs whose Done means is a
+clean-room container run; deploy commands are printed for the user, never run.
+
+**Cross-cutting and platforms** (G15, G16): *Cross-cutting checks* in `AGENTS.md` (a11y, i18n,
+performance, audit log) copied into Done means with their commands; `dispatch-measure.mjs --a11y`
+— lang, alt text, accessible names, heading skips, duplicate ids, WCAG AA contrast, no
+dependencies; setup recipes for Flutter, React Native/Expo, Electron and CLI/API.
+
+**Skill quality** (G18, G20, G21): the description now triggers on building a new app, website,
+ERP or large feature set; `evals/triggers.json` (20 queries); `scripts/build-evals.mjs` generates
+`evals/evals.json` in the skill-creator format (checked by `validate.sh`); new
+`big-build-multi-session.md` eval; `/dispatch new` installs the templates before the scaffold and
+asks for one restart.
+
+**Validation**: check 33 (structure: files, modes, 7 agents, map sections, description length and
+triggers, evals.json in sync, trigger set); `measure.test.mjs` 20 tests.
+
+**Fixed before release** (an independent read-only review found 16): end-of-task and gate order
+now bring worktree slices back *before* the full suite and verify; resume and PLAN read the
+roadmap's current phase; the new-project path commits plan + templates as a second commit (no
+amend), writes a handoff before the restart, picks templates from the planned stack, and takes
+the scaffold's BASE right before it; migrations allow the framework's schema dump and
+`ARCHITECTURE.md`, give Prisma a reset-based rollback, and the migrator matches the recorded dev
+connection exactly instead of guessing from a name; setup records a `Migrations:` line;
+checkpoint staging skips absent paths and never edits the ledger; the Commands table gains a
+*Dependency audit* row; `--a11y` no longer uses `eval` in the page (works under a strict CSP —
+tested); `build-evals.mjs` handles nested and multiple code spans in prompts.
+
+## 1.8.0 — 2026-09-27
+
+Five problems reported from real use: slow tasks, image references never matched exactly,
+backend workflows breaking end to end, the main session filling up and hallucinating, and
+the user's own wording being rewritten. Root causes and the reasoning behind each fix:
+`docs/FIELD-ISSUES-v1.8.0.md`. Unchanged: the footer line, the four agent names, Opus 5.5 at
+`effort: high`, the 2-concurrent cap, acceptance being the main session's.
+
+**Speed — new `references/speed.md`**
+- Every task is sized **S / M / L** in the plan; the size sets questions, scout, tests, critic
+  and a tool-call **Budget** (~25 / 60 / 120) that every brief now carries.
+- Questions go **defaults first**: one "go, or correct any line" message counts as one question;
+  one-at-a-time only where no default fits (`responsive.md`, `new-project.md`). Batching is still
+  forbidden. An existing spec replaces the intake.
+- Tests: **targeted per dispatch** (new *Test (targeted)* / *Test (full)* rows in `AGENTS.md`),
+  the full suite **once per task**.
+- Verify runs **once per task** over the combined diff, and is skipped (and said) when only
+  stylesheets, images or docs changed (`verifier.md`, `SKILL.md` step 6).
+- An agent at its budget stops and reports — handled as a question, not a failure (`failures.md`).
+
+**Image references — new `references/visual-reference.md`**
+- The image lives in the repo (`.claude/dispatch/refs/<NNN>-<slug>/<width>.png`) and on a new
+  **Reference image(s)** brief line with `Fidelity: exact | close`; one conflict question when the
+  mock breaks `DESIGN.md`.
+- `dispatch-frontend.md`: open the image, write a reference spec table (phase 1), compare up to
+  3 passes, report `% differ` per pass and every red region left.
+- `dispatch-measure.mjs`: **`--shot <dir>`** (full-page PNG per width) and **`--compare <image>`**
+  (reference scaled to the width, pixel diff, composite *reference | render | diff*). No new
+  dependencies — the comparison runs in a blank browser page, Node and Python renderers both.
+  Setup gitignores `.claude/dispatch/shots/`.
+- Acceptance opens the composite; structure red rejects, content red is noted.
+
+**Backend flows — new `references/flows.md`**
+- `AGENTS.md` gets a **Flows** map (trigger, steps, states, invariants, test).
+- Briefs get a **Flow** section (In/Out contract, invariants); a flow step is **one vertical
+  slice** to one implementer (`routing.md` redefines "one job"); two steps of one flow never run
+  in parallel.
+- Flow tests are required and must fail at BASE; acceptance runs every touched flow's test plus
+  earlier ones — red is a rejection; the critic's risk table gains a flow-transition row.
+
+**Context — new `references/context.md`, `references/cycle-card.md`, mode `/dispatch resume`**
+- **The fact rule** (in `SKILL.md`): statements about the repo come from this cycle's output;
+  after a compaction every sha in the summary is unknown.
+- Briefs are written to `.claude/dispatch/briefs/<NNN>-<slug>.md`; `.claude/dispatch/ledger.md`
+  gets one line per outcome (bootstrap creates it, Step 6 commits it).
+- The **cycle card** replaces reading four references on a routine dispatch; acceptance excludes
+  lockfiles and generated output from what it reads.
+- **Rotation** after ~8 accepted dispatches, a phase, or a compaction: `HANDOFF.md` (≤ 30 lines,
+  gitignored) plus a resume block; `/dispatch resume` continues from files only. `status` check 12
+  and recommendation 2 report a pending handoff.
+
+**The user's words — `prompt-spec.md` rule 5**
+- New brief sections **User's words** (the request, unedited) and **Verbatim — use exactly**
+  (product text, byte for byte); both worker agents treat Verbatim as final.
+- Acceptance `git grep -F`s every Verbatim line in AFTER; a rewording is a rejection. New
+  non-negotiable in `SKILL.md`.
+
+**Evals and validation**
+- New: `verbatim-text-kept-exact.md`, `image-reference-compared.md`,
+  `backend-flow-step-one-slice.md`, `session-rotates-and-resumes.md`, `small-task-fast-lane.md`.
+  `design-asks-responsive-one-question.md` → `design-responsive-defaults-first.md`.
+- `validate.sh` check 32 guards every half of the five fixes; `measure.test.mjs` +4 tests
+  (18 total).
+- Review fixes before release: bookkeeping under `.claude/dispatch/` is kept out of the agent's
+  diff (brief before BASE, ledger after AFTER, one `git diff --stat -- .claude/dispatch` check);
+  worktree slices are applied back (`git diff --binary | git apply`) before the end-of-task run;
+  "fails at BASE" is evidenced by the agent's quoted test-first run; the Python renderer gets the
+  reference by path (a >128 KB argument hit E2BIG).
+
+## 1.7.0 — 2026-09-27
+
+One policy change: **every sub-agent runs on Opus 5.5** (`claude-opus-5-5`). The model-by-weight
+split of 1.6.0 (`sonnet` for light work, `opus` for design/core/critic) is gone. No renames; the
+footer line, the four agent names, the 2-concurrent cap and `effort: high` are unchanged.
+
+**Opus 5.5 everywhere**
+- All four agent templates pin `model: claude-opus-5-5` — a full model ID, not the `opus` alias,
+  so an installed copy keeps pointing at Opus 5.5 when the alias later moves. `dispatch-db-tester`
+  moves up from `sonnet`.
+- The main session still sets the model on **every** Agent tool call — `claude-opus-5-5`, or
+  `opus` where the parameter accepts aliases only. That per-call value is what reaches the agents
+  with no frontmatter of ours: the built-in `Explore` scout (which otherwise runs on the runtime's
+  small, fast default — the one place Haiku-class models were still doing dispatch work), a
+  general-purpose fallback carrying a template body, and a repo's own agents.
+- `routing.md` → *Model selection* rewritten around one rule; the light/heavy table is removed.
+  The plan line is now simply `model: Opus 5.5 (claude-opus-5-5)`. Changing the model is the
+  user's decision, like effort — never switched down to save cost or sideways to rescue a brief.
+- Deps briefs (`dependencies.md`) move from `sonnet` to Opus 5.5; the scaffold dispatch
+  (`new-project.md`) and the critic (`verifier.md`) name Opus 5.5 explicitly.
+- The main and polish sessions are told to run on Opus 5.5 too (`claude --model claude-opus-5-5`);
+  the polish handoff block says so.
+- **Optional session pin.** Bootstrap Step 3 now proposes, on a yes, `"model": "claude-opus-5-5"`
+  and `env.CLAUDE_CODE_SUBAGENT_MODEL: "claude-opus-5-5"` in `.claude/settings.json` (merged, diff
+  shown first), and Step 6 stages that file when it exists.
+- **`status` check 11 — model pin.** Lists every installed agent's `model:` line and the settings
+  pin; an agent on another model or an alias, or no pin, is reported with its fix, and a new
+  recommendation rule (6) points at bootstrap Step 3.
+
+**Evals and validation**
+- `typo-fix-uses-sonnet.md` → `typo-fix-uses-opus-5-5.md`: even a one-word copy fix is
+  dispatched on Opus 5.5, set explicitly on the call.
+- New `scout-pins-opus-5-5.md`: the `Explore` scout, a general-purpose fallback and a repo agent
+  whose frontmatter says `sonnet` all get Opus 5.5 on the call.
+- `deps-brief-lockfile-only.md`, `new-project-intake-one-question.md`,
+  `polish-is-handed-off-not-dispatched.md` updated to Opus 5.5.
+- `validate.sh`: check 8 requires `model: claude-opus-5-5` in every template; checks 18 and 30
+  follow the new wording; new **check 31** fails if any instruction outside the changelogs routes
+  work to `sonnet`, `haiku` or `fable` (or pins an alias) in a line that does not forbid it, and
+  checks the scout, fallback, status and settings-pin wiring.
+
+**Cost note.** Light work (copy, renames, scouting, DB checks) now costs Opus 5.5 rates. The
+levers left are fewer dispatches (when-not-to-dispatch.md) and the user's own `effort:` choice.
+
+**Also:** `docs/GAP-ANALYSIS-big-projects.md` — a review of what the skill still lacks for
+building large apps (ERP, multi-module web apps) end to end, with a prioritised roadmap.
+
 ## 1.6.0 — 2026-09-22
 
 One new feature — polish moves to a second session — plus two policy changes and the fixes an

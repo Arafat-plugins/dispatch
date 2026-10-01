@@ -143,3 +143,59 @@ test('CLI: no fetch → exit 1 "needs Node 18+", before any network use', (t) =>
   assert.equal(r.status, 1);
   assert.match(r.stderr, /needs Node 18\+/);
 });
+
+test('--shot and --compare: parsing, one width, image types, default directory', () => {
+  const o = m.parseArgs([U, '1440', '--compare', 'refs/007/desktop.png']);
+  assert.equal(o.error, undefined);
+  assert.equal(o.shot, '.claude/dispatch/shots');
+  assert.equal(m.parseArgs([U, '1440', '--compare', 'a.PNG', '--shot', 'out']).shot, 'out');
+  assert.match(m.parseArgs([U, '375', '1440', '--compare', 'a.png']).error, /^--compare takes exactly one width/);
+  assert.match(m.parseArgs([U, '1440', '--compare', 'a.gif']).error, /^--compare needs a \.png, \.jpg or \.webp image/);
+  assert.equal(m.parseArgs([U, '375', '--shot']).error, '--shot needs a value');
+  assert.deepEqual(m.parseArgs([U, '375', '768', '--shot', 's']).widths, [375, 768]);
+  assert.ok(m.parseArgs(['--probe', '--shot', 's']).error);
+});
+
+test('shot names come from the URL path, filesystem-safe', () => {
+  assert.equal(m.shotName('http://localhost:5173/', 375), 'home-375.png');
+  assert.equal(m.shotName('http://localhost:5173/shop/catalog/', 1280), 'shop-catalog-1280.png');
+  assert.equal(m.shotName('http://x.test/index.html', 800, '-compare'), 'index-800-compare.png');
+  assert.equal(m.shotName('http://x.test/a%20b?q=1', 375), 'a_20b-375.png');
+});
+
+test('pixelDiff: identical is 0, a colour change past the threshold is counted and painted red', () => {
+  const px = (...rgb) => Uint8ClampedArray.from([...rgb, 255]);
+  const same = m.pixelDiff(px(10, 20, 30), px(10, 20, 30), 1, 1, 0.04);
+  assert.equal(same.diff, 0);
+  assert.notDeepEqual([...same.out.slice(0, 3)], [255, 0, 0]);
+  const light = m.pixelDiff(px(0xee, 0xf3, 0xf5), px(255, 255, 255), 1, 1, 0.04);   // #eef3f5 vs white
+  assert.equal(light.diff, 1);
+  assert.deepEqual([...light.out], [255, 0, 0, 255]);
+  const twoByOne = Uint8ClampedArray.from([0, 0, 0, 255, 0, 0, 0, 255]);
+  assert.equal(m.pixelDiff(twoByOne, Uint8ClampedArray.from([0, 0, 0, 255, 255, 255, 255, 255]), 2, 1, 0.04).diff, 1);
+});
+
+test('output lines carry the shot and the comparison', () => {
+  assert.equal(m.line(375, { sw: 1, cw: 1, shot: 's/home-375.png' }, {}), '375px  overflow: no  shot: s/home-375.png');
+  const cmp = { pct: 12.345, w: 1440, h: 900, rw: 2880, rh: 1800, file: 's/home-1440-compare.png' };
+  assert.equal(m.line(1440, { sw: 1, cw: 1, shot: 's/home-1440.png', cmp }, {}),
+    '1440px  overflow: no  shot: s/home-1440.png  compare: 12.3% differ (1440x900; reference 2880x1800) -> s/home-1440-compare.png');
+  assert.match(m.dataUrl('x.webp', () => Buffer.from('a')), /^data:image\/webp;base64,/);
+  assert.match(m.dataUrl('x.JPG', () => Buffer.from('a')), /^data:image\/jpeg;base64,/);
+});
+
+test('--a11y: a flag, not a value; probe refuses it; output text', () => {
+  assert.equal(m.parseArgs([U, '375', '--a11y']).a11y, true);
+  assert.equal(m.parseArgs([U, '375', '--prop', '--a11y']).error, '--prop needs a value');
+  assert.ok(m.parseArgs(['--probe', '--a11y']).error);
+  assert.equal(m.a11yText({}), 'a11y: none found (basic checks)');
+  assert.equal(m.a11yText({ 'img-alt': { n: 2, first: 'img.hero' }, lang: { n: 0, first: '' } }), 'a11y: 2 — img-alt 2 (img.hero)');
+  assert.equal(m.line(375, { sw: 1, cw: 1, a11y: {} }, {}), '375px  overflow: no  a11y: none found (basic checks)');
+});
+
+test('contrastRatio matches WCAG reference values', () => {
+  assert.equal(m.contrastRatio([0, 0, 0], [255, 255, 255]).toFixed(1), '21.0');
+  assert.equal(m.contrastRatio([255, 255, 255], [255, 255, 255]), 1);
+  assert.equal(m.contrastRatio([0xaa, 0xaa, 0xaa], [255, 255, 255]).toFixed(2), '2.32');      // #aaa on white fails AA
+  assert.ok(m.contrastRatio([0x76, 0x76, 0x76], [255, 255, 255]) >= 4.5);                     // #767676 is the AA edge
+});

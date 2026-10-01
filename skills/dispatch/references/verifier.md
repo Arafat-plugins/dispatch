@@ -6,6 +6,17 @@ from the actual change. It never edits. Its only output is findings.
 Run after acceptance. Different question: acceptance asks *"does it do the job?"*, this asks
 *"is it safe?"*
 
+**When it runs — only on a security surface, once per task.** After the task's **last**
+accepted dispatch, and only when the task's combined diff (first BASE → last AFTER) touches a
+**security surface**: authentication or sessions, permissions, payments, secrets or credentials,
+user input handling (forms, uploads, parsing), raw queries, data writes or deletes, CORS /
+security headers. Decide it from `git diff --stat` and the hunks you already read at acceptance;
+when in doubt, run it. Otherwise the verdict is `verify: skipped — no security surface (<N>
+files)`, written in the plan and the report — styles, layout, copy, docs and ordinary UI changes
+land there ([speed.md](speed.md#verify--only-on-a-security-surface)). Two exceptions: a deps
+dispatch gets its own narrow verify immediately ([dependencies.md](dependencies.md)), and
+`/dispatch verify` typed by the user always runs.
+
 ## `/dispatch verify` with no cycle in flight
 
 Run inside a cycle, BASE and AFTER are already in your plan (acceptance.md). Run cold — the user
@@ -52,7 +63,7 @@ accepted work
   1. SCOUT   you, from the diff you already read at acceptance: what actually changed
   │          → you write a security spec targeted at THAT change
   │
-  2. CRITIC  dispatch-security-critic (opus always, read-only by instruction):
+  2. CRITIC  dispatch-security-critic (Opus 5.5 always, read-only by instruction):
   │          evaluates the diff against your spec
   │
   → findings to the user; the user decides what to fix
@@ -60,9 +71,7 @@ accepted work
 
 **The scout is not a sub-agent.** You read `git diff <BASE> <AFTER>` in step 5; the scout stage is you
 reducing that to files, surfaces and risk classes. Dispatching another agent to re-read the
-same diff spends a run to learn what you already know. The only exception is an oversize diff
-you reviewed with `--stat` and per-file reads — then a read-only scout (routing.md) may
-summarise the files you skipped, output ≤ 20 lines.
+same diff spends a run to learn what you already know. An oversize diff is read with `--stat` and per-file reads, by you; there is no scout sub-agent.
 
 The scout stage exists because a generic security checklist produces generic findings. A diff
 that only touches CSS should not be asked about SQL injection — it wastes the review and buries
@@ -92,6 +101,7 @@ change can carry**. Map from what you see:
 | An endpoint, route, or handler | Authentication, authorisation, rate limits |
 | File paths from input | Traversal, symlinks, upload type checks |
 | Auth, sessions, tokens, crypto | Timing, storage, expiry, algorithm choice |
+| A step of a mapped flow (state change, webhook, handler chain) | Step skipping, replay and double submit, a transition without the permission check, races ([flows.md](flows.md#verify--ask-about-the-transitions)) |
 | Dependencies or lockfiles | Provenance, known advisories, version pinning |
 | Only styles / markup / copy | Content injection only — **say the rest is out of scope** |
 
@@ -100,7 +110,8 @@ Naming what is out of scope is as valuable as naming what is in. A deps dispatch
 
 ## Stage 2 — the critic brief
 
-**Always `model: opus`**, set on the Agent tool call. A small diff is not a reason to spend
+**Always Opus 5.5** (`claude-opus-5-5`; `opus` where the parameter takes aliases only), set on
+the Agent tool call. A small diff is not a reason to spend
 less on the judgement — it is where a missed finding ships unnoticed (routing.md,
 "Model selection").
 
@@ -149,7 +160,13 @@ Do NOT report on code the diff did not touch.
 
 If a concern is speculative, mark it speculative. Do not pad the list.
 If there is nothing, say "No findings." That is a valid and expected result.
-Report at most 40 lines, one phase per risk area listed above.
+Report at most 40 lines, one section per step below.
+
+## Steps
+1. Read AGENTS.md at the repo root, then run the diff command above.
+2. For each risk area under "Evaluate specifically for", in the order listed: read the hunks
+   that touch it, then give a finding or "none" for that area.
+3. Run `git status --porcelain` and confirm it is unchanged.
 
 ## Knowledge
 Read AGENTS.md at the repo root first, then only the changed files.
@@ -159,9 +176,13 @@ Read AGENTS.md at the repo root first, then only the changed files.
 - [ ] every finding carries file:line, the concrete attack, severity and confidence
 - [ ] nothing outside the diff is reported, and no style, naming or performance opinions
 - [ ] `git status --porcelain` is unchanged — you wrote no file
-- [ ] you report per phase: the risk area, the evidence, the judgement
+- [ ] you report per step: the risk area, the evidence, the judgement
 
-[ task list broken down into phases, each phase as a vertical slice, numbered ]
+## Budget
+About 40 tool calls (80 for a diff over ~300 lines). At the budget, stop and report which areas
+are covered and which are not.
+
+[ follow the numbered steps above in order; do not plan, add, skip or reorder steps; if a step cannot be done as written, stop and report ]
 ```
 
 ## After the critic returns
@@ -179,7 +200,8 @@ Report them to the user grouped by severity, each with the concrete attack. Then
 
 - **Never auto-fix.** A fix is a new change and goes through the full cycle — plan, brief,
   dispatch, accept.
-- **Never auto-commit or push.**
+- **Never commit or push on a finding's account.** Checkpoint commits follow
+  [integration.md](integration.md) — the user's yes, never a push.
 - **Do not launder confidence.** A finding the critic marked speculative stays speculative when
   you report it. Passing along a maybe as a certainty is worse than not reviewing at all.
 - **"No findings" is reportable as-is.** Do not go hunting for something to say.
