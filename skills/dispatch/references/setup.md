@@ -150,8 +150,9 @@ PLAYWRIGHT_BROWSERS_PATH="$PWD/.claude/dispatch/browsers" .venv/bin/python -m pl
 ```
 
 `PLAYWRIGHT_BROWSERS_PATH` keeps the ~150 MB browser out of the user's home cache; the measure
-script picks that directory up on its own. Add `.claude/dispatch/browsers/` to the repo's
-`.gitignore` in the same proposal. Never run `playwright install-deps` — it needs `sudo`; if
+script picks that directory up on its own. Add `.claude/dispatch/browsers/` and
+`.claude/dispatch/shots/` (the script's `--shot` / `--compare` output, working files only —
+[visual-reference.md](visual-reference.md)) to the repo's `.gitignore` in the same proposal. Never run `playwright install-deps` — it needs `sudo`; if
 chromium will not start for missing system libraries, say so and fall to 3. No virtualenv on
 a Python project → do not create one unasked; ask, or fall to 3.
 
@@ -164,6 +165,22 @@ words. UI briefs still dispatch; acceptance reports every width as *Not verified
 **Smoke run.** If the dev server is already up, run the measure script once at 375 (or one
 MCP resize-and-evaluate) and record the result. Server down → record
 `(not yet exercised — dev server was down)`; do not start it just for this.
+
+### Not a web UI — a recipe per platform
+
+Steps b and c render web pages. Other platforms have their own renderer. Detect it the same way
+(read-only), propose what is missing, and record it under `Rendering:`:
+
+| Platform (signal) | Renders with | Screenshot / compare | Records as |
+| --- | --- | --- | --- |
+| Flutter (`pubspec.yaml`) | `flutter test` + golden tests (`matchesGoldenFile`) | `flutter test --update-goldens` makes goldens; a reference image becomes a golden | `Rendering: flutter goldens` |
+| React Native / Expo (`app.json`, `metro.config.*`) | the repo's Detox or Maestro flows on an emulator the user has running | Maestro `takeScreenshot` / Detox `device.takeScreenshot` → `.claude/dispatch/shots/` | `Rendering: maestro (emulator: <name>)` |
+| Electron (`electron` in package.json) | Playwright's `_electron.launch` via the repo's Playwright | `page.screenshot` per window size | `Rendering: playwright electron` |
+| CLI / API only | golden-output tests (the exact stdout, or the JSON response, stored as a fixture) | — | `Rendering: n/a (golden output: <test path>)` |
+
+No renderer for the platform → `Rendering: none (<platform>)`. Every visual check is then
+*Not verified*, and the report says so. Never mark a native screen as rendered because the
+code reads correctly.
 
 ## Step c — the measure script
 
@@ -227,11 +244,11 @@ inside `"build"`, `"prebuild"` and `"guide"`, and still misses `"@radix-ui/react
 Read the theme config itself (it is small); do not read stylesheets whole. On a large repo, do
 this in a sub-agent that returns the proposal only.
 
-Then ask **at most three** questions, **one question per message**, skipping any the files
-already answer: brand palette? a reference product or images to follow? density — compact or
-comfortable? These three count against the **8-question ceiling** for the whole task
-([responsive.md](responsive.md#the-question-ceiling--at-most-8-across-every-path)) — at the
-ceiling, propose defaults instead and proceed on one confirmation. Write the proposal, show it (`cat` for a new file) and write it only on a yes.
+Then post **one defaults-first message**, skipping any point the files already answer: brand
+palette, a reference product or images to follow, density (compact or comfortable) — each with
+the default you propose; *go* or correct a line. That message is one question against the
+**3-question ceiling** for the whole task
+([responsive.md](responsive.md#the-question-ceiling--at-most-3-across-every-path)). Write the proposal, show it (`cat` for a new file) and write it only on a yes.
 Under ~150 lines:
 
 ```markdown
@@ -299,6 +316,12 @@ Name the schema(s) and owner role for Postgres from the migrations or config, no
 than `public` → one `GRANT USAGE` / `GRANT SELECT` line each. The env file must be one git
 ignores — if `.env` is not ignored, say so before the user stores anything in it.
 
+**Migrations.** From the lockfile and framework (step a), name the migrate command, and from the
+config (key names only) the development database's host, name and user, plus a separate
+migrator connection if one exists (`DB_MIGRATOR_*`). Ask the user to confirm it is a
+development database, one question. That line is what `dispatch-migrator` compares against
+before it runs anything ([migrations.md](migrations.md)).
+
 **Record** what came back: `Database: postgres, read-only user: dispatch_ro (DATABASE_URL_RO)`,
 or `Database: mysql, read-only user: none — db-tester will refuse write-capable credentials`
 when the user has not created one yet. SQLite: `read-only user: n/a (sqlite3 -readonly)`.
@@ -318,6 +341,7 @@ Measured <ISO date> by `/dispatch setup`:
 - Rendering: <MCP name | MCP name (main session only) | local Playwright | none | n/a (no UI)>  — frontend agent tools: <line as installed>
 - Design source: <DESIGN.md | design skill name | none>
 - Database: <engine>, read-only user: <name | none — db-tester will refuse write-capable credentials>
+- Migrations: `<command>` → dev database `<host>/<name>` as `<user>` (migrator connection: <name | default>) | none — no database
 - Lint / test / build: see Commands
 ```
 

@@ -18,26 +18,40 @@ If the repo has none, `/dispatch bootstrap` installs the generic set below.
 
 | The task is about | Agent | Why |
 | --- | --- | --- |
-| Server logic, APIs, data access, business rules | `dispatch-implementer` | Edits code, runs tests |
+| Server logic, APIs, data access, business rules — a whole flow step, all layers | `dispatch-implementer` | Edits code, writes and runs tests |
 | Layout, CSS, responsive, anything judged by looking | `dispatch-frontend` | Needs to render and measure |
-| "Which file does X?", "where is Y defined?" | a read-only scout (below) | Returns paths, edits nothing |
-| Schema, queries, migrations, data integrity | `dispatch-db-tester` | Read-only DB inspection |
-| "Is this change safe?" | `dispatch-security-critic` | Critic only, never edits |
+| Writing a schema change, backfill, seed or grant | `dispatch-migrator` | Dev database only; migrate → rollback → migrate ([migrations.md](migrations.md)) |
+| Tests only — closing a `Test: none — gap`, test-first for a slice, E2E user flows | `dispatch-test-writer` | Writes tests, never app code |
+| Inspecting data, schema, integrity, query plans | `dispatch-db-tester` | Read-only DB inspection |
+| "Is this change safe?" — per task, only when the diff touches a security surface (speed.md); `/dispatch audit` per phase | `dispatch-security-critic` | Critic only, never edits |
+| "Does the phase still fit the architecture and domain rules?" — per gate | `dispatch-reviewer` | Findings only: layering, rule and permission drift, queries |
 | Reviewing a diff before commit | repo's own review agent, else `dispatch-security-critic` | |
+
+**Roles without a template of their own** go to `dispatch-implementer`, with a first line in
+the brief's Task naming the role and the reference that governs it:
+
+| The task is about | Brief it as | Governed by |
+| --- | --- | --- |
+| CI pipeline, deploy kit, backups, runbooks, cutover | `Delivery brief (delivery.md): …` | [delivery.md](delivery.md) |
+| Documentation — README, runbook text, API docs | `Docs brief: …` — Inputs are the doc files only | prompt-spec.md; Verbatim for user text |
+| Performance — a measured slow page or query | `Performance brief: …` — Current wrong behaviour is a number (ms, queries) | the before/after number in Done means |
+| Data import / ETL from another system | `Migration brief (migrations.md): …`, kind *data* — to `dispatch-migrator` | [migrations.md](migrations.md) |
+| i18n — strings, locales, RTL | `i18n brief: …` — the locale files plus the views that use them | AGENTS.md → Cross-cutting checks |
+| Accessibility fixes | to `dispatch-frontend`, with the `--a11y` lines in Done means | AGENTS.md → Cross-cutting checks |
 
 **Polish is not a routing target.** There is no agent for it and no row above: it goes to a
 second Claude session, never to a sub-agent of this one ([polish.md](polish.md)).
 
-**The scout.** In Claude Code, the built-in `Explore` agent. Anywhere else: any sub-agent
-whose tools are `Read, Grep, Glob` only, or a general-purpose sub-agent briefed "return paths
-and line numbers only; edit nothing; output ≤ 20 lines". The verify chain's "scout stage" is
-**not** this — that one is you, reusing the diff you already read at acceptance (verifier.md).
+**No scout.** "Which file does X?" is not a dispatch. Locating files and lines is part of
+planning, and planning is the main session's: `grep -rn`, `git grep -n`, then a ≤ 60-line read
+around the hit (prompt-spec.md). The verify chain's "scout stage" is also you, reusing the diff
+you already read at acceptance (verifier.md).
 
 ## When the agent name is not recognised
 
 Templates copied into `.claude/agents/` during this session are usually not loaded until the
 session restarts or `/agents` reloads them. If the runtime rejects `dispatch-implementer` (or
-any of the four), do not wait and do not skip the dispatch:
+any of the templates), do not wait and do not skip the dispatch:
 
 1. Use a general-purpose sub-agent.
 2. Paste the template's body — everything below its frontmatter — at the top of the brief,
@@ -45,22 +59,26 @@ any of the four), do not wait and do not skip the dispatch:
    `<SKILL_DIR>/agents/<name>.md` (the path bootstrap.md, Step 0, recorded in your plan).
 3. State the tool restriction in words inside the brief ("you have no browser; you are
    read-only; do not write files") — a general-purpose agent has every tool.
-4. The fallback inherits the session's effort — it cannot be set to `high` per call. Note
-   it in the plan (see [Effort](#effort)).
+4. Set the model to Opus 5.5 on the call ([Model selection](#model-selection)) — the
+   fallback has no frontmatter to supply it. It inherits the session's effort, which cannot be
+   set to `high` per call; note that in the plan (see [Effort](#effort)).
 5. Tell the user a restart makes the named agents available.
 
 ## Rules
 
-**One job per dispatch.** "Fix the CSS and also add the REST field" is two briefs to two agents.
-A single agent given two jobs produces a diff you cannot accept or reject cleanly — half of it
-is right.
+**One job per dispatch — and a job is a vertical slice.** "Fix the CSS and also add the REST
+field" is two briefs to two agents: a single agent given two unrelated jobs produces a diff you
+cannot accept or reject cleanly. But one step of a backend flow — migration, model, service,
+handler, validation, the wiring that shows it, and its flow test — is **one** job for **one**
+`dispatch-implementer`, not four dispatches by layer; splitting by layer is how the handoff
+between them gets lost ([flows.md](flows.md#slice-by-flow-step-not-by-layer)).
 
-**Read-only work goes to a read-only agent.** If you need to know *where* something is, dispatch
-a scout that returns paths. Do not give edit tools to a question.
+**Read-only work goes to a read-only agent** (critic, reviewer, db-tester). Do not give edit
+tools to a question. Finding *where* something is, you do yourself.
 
 **Never dispatch the same brief twice hoping for a different result.** An attempt that came back
-and was rejected gets a brief that changed — the original plus what failed and what correct
-looks like on the first rejection, a rewritten spec on the second. A third failure stops the
+and was rejected gets a brief that changed — the original plus what failed and the corrected
+step on the first rejection, rewritten steps on the second. A third failure stops the
 loop (failures.md).
 
 The one narrow exception: the run errored or timed out and **nothing changed** — the tree is
@@ -77,8 +95,8 @@ file sets — say so explicitly in each brief, and give each sub-agent its own w
 
 ## Concurrency cap
 
-**At most 2 sub-agents running at once, counting every kind** — workers, scouts, the critic,
-the db-tester. Track how many are in flight; a third one queues behind them, it does not run
+**At most 2 sub-agents running at once, counting every kind** — workers, the critic, the
+reviewer, the db-tester. Track how many are in flight; a third one queues behind them, it does not run
 alongside them.
 
 A plan that fans out beyond 2 at once (several disjoint surfaces of one big project, say) is
@@ -93,7 +111,7 @@ queue?
 Proceed past 2 only on an explicit yes, and only for that plan — the cap applies again on the
 next dispatch.
 
-**Read-only agents need an idle tree.** The critic and the db-tester are checked by comparing
+**Read-only agents need an idle tree.** The critic, the reviewer and the db-tester are checked by comparing
 `git status --porcelain` before and after they run (acceptance.md, "After the critic"). A worker
 editing the same working tree meanwhile changes that output, and the check can no longer tell
 whose change it was. So the second slot may hold one of them only while **no other agent is
@@ -102,38 +120,64 @@ a worker that shares your tree.
 
 ## Model selection
 
-The **main session** sets the model per dispatch, on the Agent tool call — its `model`
-parameter overrides the agent file's frontmatter. Set it explicitly, every time, and say the
-choice plus a one-line reason in your plan.
+**One model for every sub-agent: Opus 5.5** (`claude-opus-5-5`). Implementer, frontend,
+db-tester, security critic, reviewer, a general-purpose fallback — light copy fix or new
+subsystem, one-line diff or thousand-line scaffold. There is no light/heavy split any more and
+no downgrade path: never `sonnet`, never `haiku`, never `fable`, for any role, for any size.
 
-| Task kind | Model | Why |
-| --- | --- | --- |
-| Light — simple text-level work: text/copy, docs, renames, config values, small mechanical edits, read-only scouting, DB checks | `sonnet` | Simple, bounded work; spending `opus` (or `fable`, where the runtime offers it) here is waste. |
-| Heavy — design work: UI/visual design, layout systems | `opus` | Judged by looking; the stronger model earns its cost on taste calls. |
-| Heavy — core-level implementation: architecture, new subsystems, business logic, cross-file changes, anything the brief calls core | `opus` | Getting the shape wrong costs more than the extra spend to get it right. |
-| **Security review — always, whatever the diff size** | `opus` | A judgement that misses something is worse than a slow one. A one-line diff is exactly where a missed finding ships. |
+**Set it on the Agent tool call, every dispatch** — the per-call `model` parameter overrides the
+agent file's frontmatter, and an agent with no `model:` line (a general-purpose fallback, a
+repo's own agent) otherwise runs on whatever default the runtime gives it, which can be a small,
+fast model. Pass:
 
-Unsure whether a task is light or heavy? If it touches design or core-level implementation,
-choose `opus` and say why in the plan.
+| The `model` parameter accepts | Pass |
+| --- | --- |
+| a full model ID | `claude-opus-5-5` |
+| aliases only (an enum such as `sonnet` / `opus` / `haiku` / `fable`) | `opus` — it resolves to Opus 5.5; `status` check 11 confirms the pin |
 
-**Template defaults.** `dispatch-implementer` and `dispatch-frontend` ship with `model: opus`
-in frontmatter — they exist for core and design work. The main session overrides *down* to
-`sonnet` on the Agent tool call for anything light (a copy fix, a renamed field, a config
-value). `dispatch-security-critic` ships with `model: opus` too and is **never** dispatched at
-`sonnet` or `haiku` — not for a one-file diff, not for a copy change, not because it is
-read-only; size is not a reason to think less hard about safety. `dispatch-db-tester` stays
-`model: sonnet` — its job is bounded evidence-gathering, not a judgement call. Editing the
-installed file's `model:` line does nothing: the per-call `model` always wins, so set `opus`
-for the critic on every verify call.
+State it in the plan, one line: `model: Opus 5.5 (claude-opus-5-5)`. No reason line is needed —
+there is no choice to justify.
 
-Nothing switches mid-task. The main session stays whatever the user is running.
+**Template defaults.** All seven templates ship `model: claude-opus-5-5` in frontmatter — a full
+ID, not the `opus` alias, so an installed copy keeps pointing at Opus 5.5 even after the alias
+moves to a newer model. The per-call parameter is still set every time: it is what covers the
+agents that have no frontmatter of yours. `dispatch-security-critic` in particular is **never**
+dispatched on another model — not for a one-file diff, not for a copy change, not because it is
+read-only; size is not a reason to think less hard about safety.
+
+**Repo's own agents.** A purpose-built agent whose `model:` line names something else still runs
+on Opus 5.5 — the per-call parameter wins. Tell the user once that its frontmatter disagrees and
+suggest `model: claude-opus-5-5`; do not edit it without a yes.
+
+**Pinning the rest of the runtime (optional, on the user's yes).** Bootstrap Step 3 offers two
+lines in `.claude/settings.json`, so sessions and sub-agents the skill does not dispatch land on
+Opus 5.5 too:
+
+```json
+{
+  "model": "claude-opus-5-5",
+  "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-5-5" }
+}
+```
+
+`model` is the session default for this repo — main and polish sessions alike; the env var is
+the fallback for any sub-agent that has neither a per-call nor a frontmatter model. Neither
+replaces setting the per-call parameter.
+
+**Changing the model** is the user's decision, like effort — per repo, in the installed copies
+and the settings file. Never switch it yourself: not down to save cost, not to "a different
+model" to rescue a failing brief (a failing brief is rewritten, failures.md).
+
+The **main session** should run on Opus 5.5 too (`claude --model claude-opus-5-5`, or `/model`).
+The skill cannot switch it mid-task; if the session is on another model, say so once at the
+start of the first dispatch and carry on.
 
 ## Effort
 
 **Every sub-agent runs at `effort: high`.** Model picks *how capable*; effort picks *how long
-it thinks*. High is the setting for a briefed job, whether the model is `sonnet` or `opus`.
+it thinks*. High is the setting for a briefed job on Opus 5.5, whatever its size.
 
-- **Where it is set:** the `effort:` line in each agent file's frontmatter. All four templates
+- **Where it is set:** the `effort:` line in each agent file's frontmatter. All seven templates
   ship with `effort: high`. The Agent tool has **no per-call effort parameter**, so there is
   nothing to set on the dispatch itself — only check the installed file still says `high`.
 - **Repo's own agents:** if a purpose-built agent has no `effort:` line it inherits the

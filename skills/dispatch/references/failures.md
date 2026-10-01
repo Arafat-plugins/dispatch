@@ -7,8 +7,8 @@ Count failures per *task*, not per brief — a rewrite does not reset the count.
 
 | Failure | Do |
 | --- | --- |
-| 1st | Re-dispatch: original brief + what failed, quoted from the diff + what correct looks like |
-| 2nd | The brief is wrong. Rewrite the spec from [prompt-spec.md](prompt-spec.md); failures become "Out of scope" lines. Dispatch once. |
+| 1st | Re-dispatch: original brief + what failed, quoted from the diff + the corrected step, written out |
+| 2nd | The steps are wrong. Re-locate (`grep -n`, the lines around the hit) and rewrite them from [prompt-spec.md](prompt-spec.md); failures become "Out of scope" lines. Dispatch once. |
 | 3rd | **Stop.** Escalate (below). No fourth dispatch without the user saying so. |
 
 **Escalation** is a report, not an apology:
@@ -58,9 +58,17 @@ git diff --stat <BASE> <AFTER>
   re-dispatch with a line under Inputs: "A previous attempt left partial edits in `<files>`;
   finish them or revert them, do not start over." Never accept partial work as-is.
 
-## 3. Sub-agent stopped to ask a question
+## 3. Sub-agent stopped at a step, asked a question — or hit its budget
 
-It cannot reach the user; the question comes to you.
+**Stopped at a step** ("step 3 cannot be done as written: the anchor line is not there") is the
+footer working: your step was wrong, not the agent. Check the spot yourself (`grep -n`, the lines
+around it), correct that step, and re-dispatch with the steps already done marked done. Not a
+failure; do not count it.
+
+It cannot reach the user; a question comes to you. **An agent that stopped at its Budget**
+(prompt-spec.md) is handled the same way, not as a failure: accept the steps that are done if they pass on
+their own, and brief the remaining steps as a new, smaller dispatch — or, if what is done does not
+stand alone, re-dispatch with the remainder and a line under Inputs naming the partial edits.
 
 - Answer it yourself if `AGENTS.md`, your plan, or the diff so far answers it.
 - Otherwise ask the user, in one line, and wait.

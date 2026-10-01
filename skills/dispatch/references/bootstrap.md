@@ -35,7 +35,7 @@ every candidate with its version:
 done | sort -u
 ```
 
-Take the first line whose version equals this `SKILL.md`'s `metadata.version` (`1.6.0`) — a
+Take the first line whose version equals this `SKILL.md`'s `metadata.version` (`2.0.0`) — a
 plugin cache can hold older copies, and a stale template installs stale rules. The directory
 is only ever taken from a line that printed; nothing printed, or no line with this version →
 say so and stop. Do not reconstruct templates from memory, and do not fall back to `.`.
@@ -61,6 +61,9 @@ decisions you should not re-derive or contradict.
 the intake first — **[new-project.md](new-project.md)**. Bootstrapping nothing produces an
 `AGENTS.md` with nothing to say; the intake produces `PROJECT_BRIEF.md`, and that is what "What
 this project is" below is written from.
+
+**Large single repo:** past ~60 surfaces, 8 flows or 6 modules, propose module maps — the root
+becomes an index with one row per module ([integration.md](integration.md#4-module-maps--when-one-map-is-not-enough)).
 
 **Monorepo:** the root `AGENTS.md` is an index — one row per package with its path and the
 package's own `AGENTS.md` if it has one — plus the root-level commands and conventions. Write
@@ -90,6 +93,8 @@ In the last two cases, write the proposal to a temp file and show the user
 `diff -u AGENTS.md <proposal>` before writing. **Never write without showing the diff.**
 
 Structure. Keep it under ~200 lines; a map that costs as much as the territory is not a map.
+When Surfaces and Flows would push it past that, split into module maps
+([integration.md](integration.md#4-module-maps--when-one-map-is-not-enough)).
 
 ```markdown
 <!-- dispatch:map v1 -->
@@ -129,12 +134,26 @@ Read this before touching anything. It replaces surveying the codebase.
 - do NOT edit <vendored deps>
 - <any architectural boundary that must hold, and what breaks if it does not>
 
+## Cross-cutting checks
+<the checks every relevant brief copies into Done means — from PROJECT_BRIEF.md → Constraints,
+or asked once. One line each, with the command that checks it; none agreed → "none agreed yet">
+- Accessibility (UI briefs): `node .claude/dispatch/dispatch-measure.mjs <url> <widths> --a11y` → "a11y: none found"
+- i18n (briefs adding user text): every new string through <the i18n helper>; keys in <locale files> for en, bn
+- Performance (list and report pages): ≤ <N> queries per request (<how measured>); p95 ≤ <ms> on seeded data
+- Audit log (writes to <modules>): one audit row per write, asserted in the test
+
+## Flows
+<one block per business workflow, ≤ 8 lines each — trigger, steps, states, invariants, test;
+format and rules in flows.md. No workflows yet → "none mapped yet">
+
 ## Commands
 | Purpose | Command |
 | --- | --- |
 | Lint | |
-| Test | |
+| Test (targeted) | <run one file or filter: `vendor/bin/pest tests/Feature/X.php`, `npx vitest run <path>`, `pytest <path>`> |
+| Test (full) | <the whole suite; if it cannot finish in 10 minutes, one row per shard> |
 | Build | |
+| Dependency audit | <`npm audit --omit=dev`, `composer audit`, `pip-audit` — used by deps briefs and /dispatch audit> |
 
 ## Known-failing baseline
 Measured <ISO date> at <short sha> with `<command>`:
@@ -143,10 +162,18 @@ Measured <ISO date> at <short sha> with `<command>`:
 ## Verification capabilities
 <written by Step 2c — dev server, rendering, design source, database read-only user; setup.md, step f>
 
+## Delivery capabilities
+<target, CI, clean-room check, environments, secrets, deploy/backup — delivery.md; none yet → "none">
+
 ## What not to bother reading
 <large generated dirs, vendored code, fixtures, build output — with a one-line reason each>
 <!-- /dispatch:map -->
 ```
+
+**Flows.** Write them from the code on an existing repo — routes plus the services and events
+they call, one block per workflow a user would name ("checkout", "leave approval") — or from
+`PROJECT_BRIEF.md` on a new one. Existing flow tests go on each block's `Test:` line; a flow
+without one says so ([flows.md](flows.md)). Paths and names only, like everything else here.
 
 *Known-failing baseline* and *What not to bother reading* are the sections people skip and the
 ones that pay. "What not to bother reading" is a direct instruction not to spend context, and
@@ -245,6 +272,12 @@ filename — a repo with its own `acme-frontend` agent does not need `dispatch-f
 though the names differ. Purpose-built agents carry conventions the generic templates cannot,
 and a second agent covering the same ground just makes routing ambiguous.
 
+The seven templates: `dispatch-implementer`, `dispatch-frontend`, `dispatch-db-tester`,
+`dispatch-security-critic` — always, where uncovered — plus `dispatch-migrator` (skip when the
+repo has no database), `dispatch-test-writer` (skip when there is no test runner), and
+`dispatch-reviewer` (install on any project with business logic; it runs once per gate,
+planning.md).
+
 ```bash
 mkdir -p .claude/agents
 cp "<SKILL_DIR>/agents/<template>.md" .claude/agents/     # per template you decided to install
@@ -254,11 +287,19 @@ cp "<SKILL_DIR>/agents/<template>.md" .claude/agents/     # per template you dec
 repo's own agents that lack an `effort:` line, suggest adding `effort: high` (routing.md,
 *Effort*) — do not edit them without the user's yes.
 
-**Models.** `dispatch-implementer` and `dispatch-frontend` ship `model: opus`,
-`dispatch-db-tester` ships `model: sonnet`, and **`dispatch-security-critic` is `opus` always,
-whatever the diff size** — a security judgement that misses something is worse than a slow one,
-so that one is never installed or overridden downward (routing.md, *Model selection*). The main
-session still sets the model per dispatch; the frontmatter is the default it starts from.
+**Models.** All seven templates ship `model: claude-opus-5-5` — Opus 5.5, pinned by full ID so
+the installed copy does not drift when the `opus` alias moves. **`dispatch-security-critic` is
+Opus 5.5 always, whatever the diff size** — a security judgement that misses something is worse
+than a slow one, so no template is ever installed or overridden onto another model (routing.md,
+*Model selection*). The main session still sets the model on every Agent call; the frontmatter
+is the pin it starts from.
+
+**Pin the session too — propose, run on a yes.** Show the user the two keys routing.md,
+*Model selection*, gives for `.claude/settings.json` (`"model"` and
+`env.CLAUDE_CODE_SUBAGENT_MODEL`, both `claude-opus-5-5`). Existing file → merge those keys only
+and show the diff first; never rewrite other keys. Declined → say so once and carry on — the
+per-call parameter still holds every dispatch, and `status` (check 11) reports the missing pin.
+Accepted → add `.claude/settings.json` to Step 6's commit list.
 
 **Never overwrite an existing agent file.** If a template's role is covered but the existing
 agent is weak, say so to the user and let them decide — do not silently replace their work.
@@ -286,6 +327,15 @@ mkdir -p .claude/dispatch/polish/requests
 [ -f .claude/dispatch/polish/INDEX.md ] || printf '# Polish index\n\nOne entry per polish run: a heading, a summary of at most two lines, a one-line touches: of\nat most five paths or surfaces, and the note path. Nothing else belongs in this file.\nThe main session reads only this file.\n' > .claude/dispatch/polish/INDEX.md
 ```
 
+**The ledger and the briefs directory** ([context.md](context.md)) — same guard, never
+rewritten; and propose `.claude/dispatch/HANDOFF.md` for `.gitignore` (a working file,
+overwritten at every session rotation):
+
+```bash
+mkdir -p .claude/dispatch/briefs
+[ -f .claude/dispatch/ledger.md ] || printf 'NNN | date | slug | agent | size | BASE | AFTER | verdict | attempt | tests | verify | minutes\n' > .claude/dispatch/ledger.md
+```
+
 `requests/` holds the main session's handoff briefs; the notes sit beside `INDEX.md`. Nobody
 polishes in the main session — say so once to the user here, with the `/dispatch polish` command.
 
@@ -309,7 +359,7 @@ If `CLAUDE.md` does not exist, do not create one. `AGENTS.md` is enough.
   "baseline_measured": "<ISO date, or null>",
   "capabilities_measured": "<ISO date, or null>",
   "polish_index": ".claude/dispatch/polish/INDEX.md",
-  "version": "1.6.0"
+  "version": "2.0.0"
 }
 ```
 
@@ -324,7 +374,7 @@ still uncommitted they land in every dispatch's diff. So, before the first dispa
 
 ```bash
 for p in AGENTS.md CLAUDE.md .claude/.dispatch-state.json .claude/dispatch/dispatch-measure.mjs \
-         .claude/dispatch/polish/INDEX.md; do
+         .claude/dispatch/polish/INDEX.md .claude/dispatch/ledger.md .claude/settings.json; do
   if [ -e "$p" ]; then git add -- "$p"; fi
 done
 if [ -d .claude/agents ]; then find .claude/agents -maxdepth 1 -name 'dispatch-*.md' -exec git add -- {} +; fi

@@ -38,7 +38,8 @@ Clean tree and a baseline, as every dispatch (acceptance.md).
 
 ## The brief
 
-**Always `sonnet`**, to `dispatch-implementer` (overridden down on the Agent tool call). The
+**Opus 5.5**, to `dispatch-implementer` (`claude-opus-5-5` on the Agent tool call, as every
+dispatch). The
 Task line opens with `Dependency brief (dependencies.md):` — that exact phrase is what lifts the
 implementer's "do not add a dependency" rule, for the manifest and lockfile only.
 
@@ -56,6 +57,12 @@ Nothing else.
 <package> at <constraint> in <manifest>, section <dependencies | devDependencies | require-dev | dev group>.
 Install with: <the package manager's own command, from the table below — never by hand-editing the lockfile>
 
+## Steps
+1. Run `<the exact install command for this package and constraint>`.
+2. Run `<the frozen / ci install>` from the new lockfile.
+3. Run `<targeted test command from AGENTS.md>`; compare with the known-failing baseline.
+4. Run `<audit command>`; quote at most 10 lines.
+
 ## Out of scope — do NOT
 - do NOT write or change any code that uses the package — that is the next brief
 - do NOT add, remove or update any other package; do NOT run a blanket update or audit fix
@@ -72,12 +79,15 @@ Read AGENTS.md at the repo root first — Commands names install, test and build
 - [ ] install completes clean (a frozen/ci install from the new lockfile succeeds)
 - [ ] existing tests still green, compared with AGENTS.md's known-failing baseline
 - [ ] audit output quoted, at most 10 lines: npm audit | composer audit | pip-audit | govulncheck | cargo audit
-- [ ] you report per phase: command run, result, verified / not verified
+- [ ] you report per step: command run, result, verified / not verified
+
+## Budget
+S — about 15 tool calls. At the budget, stop and report which steps are done.
 
 ## Report
-At most 40 lines. Quote commands and their last lines, not the lockfile.
+At most 20 lines, per step. Quote commands and their last lines, not the lockfile.
 
-[ task list broken down into phases, each phase as a vertical slice, numbered ]
+[ follow the numbered steps above in order; do not plan, add, skip or reorder steps; if a step cannot be done as written, stop and report ]
 ```
 
 No network in the sandbox → the agent stops and reports it. Never vendor a package by hand.
@@ -129,4 +139,4 @@ Everything else is out of scope for that critic, and the brief says so.
 
 Accepted and verified → the original task resumes: re-dispatch its brief, now with the package
 present, and one Inputs line — "`<package>` is installed; use it, do not add others". That is a
-separate brief, at whatever model the task itself calls for.
+separate brief, on Opus 5.5 like every dispatch.

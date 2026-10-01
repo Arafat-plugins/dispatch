@@ -116,30 +116,35 @@ You may run SELECT, SHOW, DESCRIBE, EXPLAIN (or their equivalents below).
 Do NOT run INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, GRANT, or REPLACE.
 Do NOT modify schema or data under any circumstances.
 
-## Checks
-<the specific questions>
+## Steps
+1. <check 1: the question, and the query to answer it — SELECT / EXPLAIN only, with the seatbelt>
+2. <check 2: …>
+N. Run `git status --porcelain` and confirm it is unchanged.
 
 ## Done means
-- [ ] every check above has a query run and a result, or the words "cannot determine"
+- [ ] every step above has a query run and a result, or the words "cannot determine"
 - [ ] every command you ran carried the seatbelt for this engine
 - [ ] no credential appears in your output or in any command you quoted
 - [ ] `git status --porcelain` is unchanged — you wrote no file
-- [ ] you report per phase: the check, the query, the result, the judgement
+- [ ] you report per step: the check, the query, the result, the judgement
+
+## Budget
+About 15 tool calls, plus about 5 per extra check. At the budget, stop and report.
 
 ## Report
 A table of check → query run → result → judgement. At most 40 lines.
 Say "cannot determine" where you cannot; do not guess.
 
 ## Out of scope
-Do NOT survey the whole schema. Only what the checks above need.
+Do NOT survey the whole schema. Only what the steps above need.
 Do NOT dump table contents; report counts and samples of at most 5 rows.
 Do NOT print credentials, tokens, or personal data — mask them.
 
-[ task list broken down into phases, each phase as a vertical slice, numbered ]
+[ follow the numbered steps above in order; do not plan, add, skip or reorder steps; if a step cannot be done as written, stop and report ]
 ```
 
-For a read-only brief a **vertical slice** is one check, taken end to end: the query, its
-result, the judgement. Phase 1 = check 1, and so on. The report follows the phases.
+For a read-only brief each **step** is one check, taken end to end: the query, its result, the
+judgement. You write the checks; the db-tester runs them in order and reports per step.
 
 ## Per-engine equivalents
 

@@ -1,38 +1,40 @@
 ---
 name: dispatch
-description: Delegate implementation work to sub-agents while the main session keeps a clean context. The main session plans, hands each sub-agent an explicit written spec plus the exact files to touch, then judges the returned diff itself. Run `/dispatch bootstrap` once per repo to generate the AGENTS.md map that sub-agents read instead of surveying the codebase. Use when a task needs real file edits, when the main session is filling up with file contents it does not need, when sub-agents keep re-reading the whole project before doing anything, or when the user asks to dispatch, delegate, orchestrate, or route work to sub-agents.
+description: Build and change software through sub-agents while the main session keeps a clean context — from one fix to a whole app, ERP, SaaS or website built phase by phase. Only the main session plans: it sizes the task, writes the brief as numbered direct steps plus the exact files to touch, and judges the returned diff itself; sub-agents follow the steps and never plan. Run `/dispatch bootstrap` once per repo to generate the AGENTS.md map. Use when the user asks to build, start or plan a new app, web app, website, ERP or large feature set; when a task needs real file edits; when the main session is filling up with file contents; or when the user asks to dispatch, delegate, orchestrate, or route work to sub-agents.
 license: MIT
 compatibility: Any agent runtime that can spawn sub-agents and run shell commands. Built for Claude Code; the protocol works anywhere sub-agents and git are available. Git is required for the acceptance and verify steps.
 metadata:
-  version: 1.6.0
+  version: 2.0.0
   author: Arafat-plugins
 ---
 
 # Dispatch
 
-You are the **owner** of this task, not a relay. You hold the plan and the working
-knowledge of the repo. You do not burn your context doing the work.
+You are the **owner** of this task, not a relay. You hold the plan, you write the steps, you
+judge the result. Sub-agents do the typing.
 
 ## The one rule
 
-**Hold the map, not the territory.**
+**Only the main session plans. Sub-agents follow direct steps.**
 
-- Read `AGENTS.md` (and `CLAUDE.md` if present). Compact, stable, a few KB. That is your
-  knowledge of this repo.
-- **Do not open the files you are about to dispatch.** Locating a file is cheap — one `grep`,
-  one line of output. Reading 900 lines of a stylesheet is not. The sub-agent reads it.
-- On acceptance, read the **diff**, never the whole file. The diff is what you are judging.
+- **You plan, every time.** Size the task, decide what changes, and write the brief as
+  **numbered direct steps** — file, place, change. A sub-agent never plans, never designs, never
+  decides *what* to do or *whether it worked*. It executes the steps in order and reports.
+- **Hold the map, read only the lines you need.** Read `AGENTS.md` (and `CLAUDE.md`). To write
+  a precise step, find the spot with `grep -n` and read **only the lines around it** (≈ 60 at
+  most per spot). Never read whole files; the sub-agent does that.
+- On acceptance, read the **diff**, never the whole file.
 
-Every rule below serves this one. Reading a file's contents to decide what to put in a brief is
-the sub-agent's job, not yours.
+For a routine dispatch read the **[cycle card](references/cycle-card.md)**, not every reference.
+**Say only what this cycle showed you** — a command's output, the diff, the brief; anything else
+is "unknown — checking", then the command ([references/context.md](references/context.md)).
 
 ## Your three roles, in order
 
-1. **Planner** — decide what the change actually is. Ask the user if the ask is ambiguous.
-2. **Dispatcher** — hand a specific job to a specific agent with specific references. Never
-   "go figure out the codebase."
-3. **Acceptance checker** — read what came back and judge whether it does the job. **This is
-   yours. Do not delegate it.**
+1. **Planner** — size it, settle what the change is, write the steps. Ask the user only when
+   the ask is ambiguous in a way that changes the work — one defaults-first message.
+2. **Dispatcher** — hand the steps to one agent with the exact files. Never "go figure it out".
+3. **Acceptance checker** — read what came back and judge it. **Yours. Never delegated.**
 
 ## Modes
 
@@ -42,13 +44,17 @@ Pick by what follows the command. With no argument, run `status`.
 | --- | --- |
 | `/dispatch bootstrap` | Generate `AGENTS.md` for this repo + install agent templates. **Run this first.** |
 | `/dispatch setup` | Provision and record verification capabilities — dev server, browser, design source, read-only DB user. Bootstrap runs it — **[references/setup.md](references/setup.md)** |
-| `/dispatch new <idea>` | Heavy new project: one-question-at-a-time intake, then scaffold + bootstrap — **[references/new-project.md](references/new-project.md)** |
-| `/dispatch <task>` | The full cycle: plan → locate → brief → work → accept |
+| `/dispatch new <idea>` | Heavy new project: defaults-first intake, then scaffold + bootstrap — **[references/new-project.md](references/new-project.md)** |
+| `/dispatch plan` | A large build's roadmap, phases and gates, plus `ARCHITECTURE.md` / `DOMAIN.md` — **[references/planning.md](references/planning.md)**, **[references/architecture.md](references/architecture.md)** |
+| `/dispatch <task>` | The full cycle: plan → locate → steps → work → accept |
+| `/dispatch migrate <change>` | A schema, data or privilege change as its own dispatch, proven by migrate → rollback → migrate — **[references/migrations.md](references/migrations.md)** |
 | `/dispatch deps <add\|remove\|update> <package>` | A dependency change as its own dispatch: manifest + lockfile only, then a narrow verify — **[references/dependencies.md](references/dependencies.md)** |
-| `/dispatch verify` | Security critic chain over the current diff; standalone it diffs the working tree against `HEAD`, or a revision you name — **[references/verifier.md](references/verifier.md)** |
-| `/dispatch polish [<NNN>\|<what>]` | Runs in a **second session**: works an accepted change's rough edges with the user directly, then writes one note and one index line. A main session hands off and never polishes — **[references/polish.md](references/polish.md)** |
+| `/dispatch verify` | Security critic over the current diff; standalone it diffs the working tree against `HEAD`, or a revision you name — **[references/verifier.md](references/verifier.md)** |
+| `/dispatch audit <phase\|module>` | System-level security at a gate — **[references/audit.md](references/audit.md)** |
+| `/dispatch polish [<NNN>\|<what>]` | Runs in a **second session**: works an accepted change's rough edges with the user directly, then writes one note and one index line — **[references/polish.md](references/polish.md)** |
 | `/dispatch db <check>` | Database inspection via the db-tester agent — **[references/db-check.md](references/db-check.md)** |
 | `/dispatch status` | What is set up, what is missing, what to run next — **[references/status.md](references/status.md)** |
+| `/dispatch resume` | A fresh main session picks up from `HANDOFF.md`, the ledger tail and the open brief — **[references/context.md](references/context.md#dispatch-resume)** |
 
 **Which session are you?** Both load this file, so settle it first. `/dispatch polish` → the
 **polish session**: read **[references/polish.md](references/polish.md)** now; its rules replace
@@ -57,13 +63,10 @@ session**, and everything below is yours.
 
 ## Starting something new?
 
-A **heavy** new project — built from scratch, an empty/near-empty repo, or a new large
-subsystem (multiple modules, many files, its own data model) — needs information gathered
-*before* a brief can be written, one question at a time. A **light** new thing (one script, one
-small file) does not. Recognise it under a plain `/dispatch <task>` too, not only
-`/dispatch new`: if the task matches the signals, run the intake first, then continue below.
-Trigger signals, question order and the `PROJECT_BRIEF.md` confirm step that feeds bootstrap:
-**[references/new-project.md](references/new-project.md)**.
+A **heavy** new project (empty repo, new subsystem with its own data model) needs an intake
+first; a **light** new thing (one script, one file) does not:
+**[references/new-project.md](references/new-project.md)**. Then `/dispatch plan`; the last
+phases ship it — **[references/delivery.md](references/delivery.md)**.
 
 ## First: is this repo bootstrapped?
 
@@ -71,115 +74,97 @@ Trigger signals, question order and the `PROJECT_BRIEF.md` confirm step that fee
 grep -l '<!-- dispatch:map v1 -->' AGENTS.md 2>/dev/null; ls .claude/agents/ 2>/dev/null
 ```
 
-Three outcomes:
-
-- **No `AGENTS.md`** — say so and offer `bootstrap` before anything else; a dispatch without a
-  map is the situation this skill exists to prevent. Do not dispatch a task with no map unless
-  the user tells you to. One exemption: the **scaffold** dispatch of a new project runs from
-  `PROJECT_BRIEF.md` before any map exists (new-project.md).
-- **`AGENTS.md` exists but has no marker** — written for another tool (Codex, Cursor, a human).
-  Treat it as **not bootstrapped**: it may lack the sections sub-agents need. Offer `bootstrap`,
-  which appends a dispatch section and never overwrites what is there.
-- **Marker present** — bootstrapped. Run the cycle.
-
-Read **[references/bootstrap.md](references/bootstrap.md)** when running bootstrap.
+- **No `AGENTS.md`** — offer `bootstrap` first. Do not dispatch without a map unless the user
+  says so. Exemption: a new project's **scaffold** dispatch runs from `PROJECT_BRIEF.md`.
+- **`AGENTS.md` without the marker** (written for another tool) — not bootstrapped; offer
+  `bootstrap`, which appends and never overwrites.
+- **Marker present** — run the cycle. Bootstrap details: **[references/bootstrap.md](references/bootstrap.md)**.
 
 ## Before you dispatch anything
 
-**Is this worth a dispatch?** A ≤5-line edit to lines you already hold in context is not.
-Read **[references/when-not-to-dispatch.md](references/when-not-to-dispatch.md)** — it is
-short, and the rule is narrow.
+**Is this worth a dispatch?** A ≤ ~10-line correction in one file, whose lines you already hold,
+is not — do it yourself: **[references/when-not-to-dispatch.md](references/when-not-to-dispatch.md)**.
 
-**Record the baseline.** Acceptance judges *the sub-agent's* diff, so you need a point to diff
-from that excludes whatever was already uncommitted. Each command below **prints** a sha: write
-it into your plan as `BASE: <sha>` and paste that literal into later commands — a shell variable
-does not survive between tool calls in every runtime.
+**Record the baseline.** Each command **prints** a sha: write it into your plan as `BASE: <sha>`
+and paste that literal later — a shell variable does not survive between tool calls everywhere.
 
 ```bash
 git status --porcelain           # empty = clean. Preferred: commit or stash first.
 git rev-parse HEAD               # clean tree: the printed sha is BASE
 ```
 
-Dirty tree the user does not want to commit yet — **the snapshot command**: a throwaway index,
-so the real index is never touched; the printed tree sha is BASE:
+Dirty tree the user does not want to commit yet — **the snapshot command** (a throwaway index;
+the real index is never touched; the printed tree sha is BASE):
 
 ```bash
 ( export GIT_INDEX_FILE="$(git rev-parse --path-format=absolute --git-path dispatch-snap-index)"; git read-tree HEAD && git add -A >/dev/null && git write-tree; rm -f "$GIT_INDEX_FILE" )
 ```
 
-Empty repo → new-project.md makes a root commit first. BASE_HEAD, the ignored-file baseline,
-older git and worktree isolation: **[references/acceptance.md](references/acceptance.md)**.
+BASE_HEAD, older git and worktrees: **[references/acceptance.md](references/acceptance.md)**.
 
 ## At most 2 sub-agents at once
 
-**Never more than 2 sub-agents running concurrently** — workers, scouts, the critic and the
-db-tester all count toward the same cap; a third job waits until one finishes. Going past 2 is a
-decision, not a default: **ask the user first** — the extra job, why it cannot wait, the cost —
-and proceed only on an explicit yes, for that plan only. Detail and an example ask:
+**Never more than 2 sub-agents running concurrently**, any kind. A third waits. Going past 2
+needs the user's explicit yes, for that plan only —
 **[references/routing.md](references/routing.md#concurrency-cap)**.
 
 ## The dispatch cycle
 
-### 1. PLAN
-Decide what the change is, from `AGENTS.md` + `CLAUDE.md` only. If the request is ambiguous in a
-way that changes the work, ask now — not after a sub-agent has written the wrong thing.
+### 1. PLAN — yours alone
+From `AGENTS.md` + `CLAUDE.md` (+ `ROADMAP.md`'s current phase) only. **Size it S / M / L** —
+the size sets questions, tests, verify and budget: **[references/speed.md](references/speed.md)**.
+Ambiguous in a way that changes the work → **one** defaults-first message ("here is how I'll do
+it — *go*, or correct a line"). Never a string of questions.
 
-### 2. LOCATE
-Resolve exact paths. Paths only, no contents:
+### 2. LOCATE — paths and lines, by you
+The Surfaces table or Flows map in `AGENTS.md`, else `grep -rn` / `git grep -n`. Read only the
+lines around each hit that you need to write the step. **No scout sub-agent** — locating is
+part of planning, and planning is yours.
 
-```bash
-grep -rl "<symbol or selector>" --include="*.<ext>" . | head
-```
-
-If the Surfaces table in `AGENTS.md` names the owning files, skip the grep entirely.
-If you cannot narrow to a small set of files, dispatch a **read-only scout** to find them and
-return paths — not a worker who both searches and edits.
-
-### 3. BRIEF
-Assemble the spec. Read **[references/prompt-spec.md](references/prompt-spec.md)** for the
-template and the worked example. Every brief carries, at minimum:
+### 3. BRIEF — direct steps
+Template and worked example: **[references/prompt-spec.md](references/prompt-spec.md)**. Every
+brief carries:
 
 - **Task** — one sentence: the observable change
-- **Inputs** — exact file paths, the current wrong behaviour; for UI work, the **Page URL(s)**
-- **Audience** — what consumes this code and what contract it must keep
-- **Format** — the conventions of the file being edited
-- **Out of scope** — explicit "do NOT touch X, do NOT refactor Y, do NOT survey the repo"
-- **Knowledge** — "read `AGENTS.md` first, then only the files named above"
+- **User's words** — the request, quoted unedited; **Verbatim** — product text the user
+  supplied, byte for byte. Never paraphrase or "improve" either
+- **Inputs** — exact file paths; for UI the **Page URL(s)**; for an image to match, the
+  **Reference image(s)** — **[references/visual-reference.md](references/visual-reference.md)**
+- **Steps** — numbered, direct: `1. In <file>, in <function/selector> (line ~N), change <X> to
+  <Y>.` Each step names its file and its exact change; the last step is the check command(s) to
+  run. The agent adds no steps of its own
+- **Flow** — only for a step of a mapped flow: its In/Out contract —
+  **[references/flows.md](references/flows.md)**
+- **Out of scope** — "do NOT touch X; do NOT refactor; do NOT survey the repo; do NOT commit"
 - **Done means** — the checkable list step 5 judges against; no list, no dispatch
-- **Report** — per phase, **≤ 40 lines**. You read the diff yourself; the report is a map to it.
-- **Footer** — the phase line, verbatim, always (see below)
+- **Budget** — ~15 / 40 / 80 tool calls for S / M / L; at the budget the agent stops and reports
+- **Report** — per step: **≤ 20 lines** for workers (done / not done, check output quoted);
+  ≤ 40 for the critic, reviewer and db-tester; ≤ 60 for an audit
+- **Footer** — the footer line, verbatim, always (below)
 
-Pick the agent with **[references/routing.md](references/routing.md)**. If the agent name is
-not recognised by the runtime (templates installed this session are not hot-loaded), routing
-says what to do instead.
+Audience and Format lines are added only when the file's conventions or a contract are not
+obvious from the steps. Pick the agent with **[references/routing.md](references/routing.md)**.
 
-**Set the model, every dispatch.** The Agent tool's `model` parameter overrides the agent
-file's frontmatter — use it. `sonnet` for simple text-level work (copy, docs, config values,
-renames, mechanical edits, read-only scouting, DB checks); `opus` for design work, core-level
-implementation (architecture, new subsystems, business logic, cross-file changes), and the
-security critic **always**, however small the diff. Unsure on a design/core task → choose `opus`.
-State the choice and a one-line reason in your plan. Table: **[references/routing.md](references/routing.md#model-selection)**.
+**Opus 5.5 for every sub-agent, every dispatch.** Set the Agent tool's `model` on every call —
+`claude-opus-5-5`, or `opus` where it takes aliases only; when the security critic runs, it is Opus 5.5
+**always**, however small the diff — never `sonnet`, `haiku` or `fable`. Only the user changes it —
+**[references/routing.md](references/routing.md#model-selection)**.
 
-**Effort is `high` for every sub-agent.** It is set once, as `effort: high` in each agent
-file's frontmatter — the Agent tool has no per-call effort. Never change it on your own; only the
-user changes it. Details: **[references/routing.md](references/routing.md#effort)**.
+**Effort is `high` for every sub-agent**, set as `effort: high` in each agent file's
+frontmatter. Only the user changes it — **[references/routing.md](references/routing.md#effort)**.
 
-**Designing or changing UI?** Responsive behaviour is always in scope and always in "Done
-means" — at minimum mobile ~375px, tablet ~768px, desktop ~1280px+, or the project's own
-breakpoints from `DESIGN.md` / `AGENTS.md`; **Format** cites `DESIGN.md`'s components by name.
-Before writing the brief, ask how it should look on smaller screens — **one question per
-message**, wait, then the next; never batch, and never past the 8-question ceiling. Full
-procedure: **[references/responsive.md](references/responsive.md)**.
+**UI work?** Responsive behaviour is in "Done means": mobile ~375px, tablet ~768px, desktop
+~1280px+, or the project's breakpoints. Settle it **defaults first**, in the same single message
+as any other question — **[references/responsive.md](references/responsive.md)**. Playwright
+measuring stays: the agent measures, and you measure again at acceptance.
 
 ### 4. WORK
-The sub-agent implements and reports back. You wait. You do not read along.
+The sub-agent executes the steps and reports. You wait; you do not read along. Errors,
+questions, budget stops and "a file outside Inputs must change" are not rejections —
+**[references/failures.md](references/failures.md)**.
 
-A sub-agent that errors, times out, stops to ask a question, or reports an out-of-scope need is
-not a rejection. Handle each per **[references/failures.md](references/failures.md)** — a
-needed dependency becomes a `deps` dispatch first.
-
-### 5. ACCEPT
-Yours alone. Read **[references/acceptance.md](references/acceptance.md)**.
+### 5. ACCEPT — yours alone
+**[references/acceptance.md](references/acceptance.md)**:
 
 ```bash
 git status --porcelain                                     # every changed AND created file
@@ -188,68 +173,63 @@ git diff --stat <BASE> <AFTER>
 git diff <BASE> <AFTER>                                    # large? --stat first, then per file
 ```
 
-Judge the diff against the spec *you wrote in step 3* — that is why the spec must be explicit up
-front. `git diff <BASE>` alone misses files the sub-agent created; diffing two snapshots includes
-them, whatever their names, without staging anything. Commits and ignored paths are outside both
-trees: acceptance.md checks each with one command.
+Judge the diff against **Done means** and the steps you wrote. Run the targeted check commands
+once; `git grep -F` every **Verbatim** string in AFTER — missing or reworded is a rejection. UI →
+the measure script at each width.
 
-- **Accept** → say what landed, move to verify.
-- **Reject** → re-dispatch with what was wrong and why. **Do not hand-fix it yourself** — that
-  is how your context fills with the file contents you were avoiding. The one narrow exception
-  (a one-token fix fully visible in the diff) is defined in when-not-to-dispatch.md.
-- Two rejections on the same brief means the brief is wrong, not the agent. Rewrite the spec.
-- **A third failure — after the rewritten brief — stops the loop.** Escalate to the user with a
-  summary. Never dispatch a fourth time on your own.
+- **Accept** → say what landed, append the ledger line, next dispatch or step 6.
+- **Reject** → re-dispatch with the failing step quoted and the corrected step written out. Do
+  not hand-fix (exception: a one-token fix fully in the diff, when-not-to-dispatch.md). Two
+  rejections → rewrite the steps. **A third failure stops the loop** — escalate; never a fourth.
 
-### 6. VERIFY
-Read **[references/verifier.md](references/verifier.md)**. Separate question from step 5:
-step 5 asks *"does it do the job?"*, verify asks *"is it safe?"*
+### 6. END OF TASK — only what the task needs
+- **Full suite**: size **L** only, or when the user asks. S and M report `full suite: not run (S/M)`.
+- **Verify** (security critic): only when the task's diff touches a **security surface** — auth,
+  permissions, payments, secrets, user input handling, queries, file upload, data writes —
+  **[references/verifier.md](references/verifier.md)**. Otherwise `verify: skipped — no
+  security surface`, said in the report.
+- Propose the checkpoint commit — **[references/integration.md](references/integration.md)**.
 
 ## Polish goes to a second session
 
 *Main session only — in the polish session, polish.md replaces this.*
 
-**Before planning any dispatch**, read `.claude/dispatch/polish/INDEX.md` and **nothing else**
-from that directory — titles, two-line summaries, `touches:` lines; past ~40 entries, the
-windowed read polish.md gives. Open one full note only when its title, summary or `touches:`
-names a file, surface or behaviour this brief touches, and say in the plan which and why. Never
-read `requests/`. No index file → polish has never run here; carry on silently. Polish itself is
-**not yours and not a sub-agent's**: write `.claude/dispatch/polish/requests/<NNN>-<slug>.md`,
-then print the command for the user to run in a second terminal here. A correction with one right
-answer is still yours to make directly; a judgement call settled by looking is polish —
-**[references/polish.md](references/polish.md)**.
+Before a brief, `grep -n -F` each briefed path in `.claude/dispatch/polish/INDEX.md` and read
+**nothing else** from that directory; open one full note only when a hit names a file this brief
+edits. No index → carry on silently. Polish (a judgement call settled by looking) is not yours
+and not a sub-agent's: write `.claude/dispatch/polish/requests/<NNN>-<slug>.md` and print the
+command for a second session — **[references/polish.md](references/polish.md)**.
 
 ## The mandatory footer
 
 Every dispatch prompt ends with this line, character for character, as the last line:
 
 ```
-[ task list broken down into phases, each phase as a vertical slice, numbered ]
+[ follow the numbered steps above in order; do not plan, add, skip or reorder steps; if a step cannot be done as written, stop and report ]
 ```
 
-No exceptions, no paraphrase, no reordering. It goes last so it is the final instruction the
-sub-agent reads. **It is an instruction to the sub-agent, not a placeholder for you to fill:**
-before its first edit the sub-agent writes a numbered phase list, works through it, and reports
-per phase. Phases are the *how*, never the *what* — that stays the brief's. What a vertical
-slice is, what a phase needing an unbriefed file means, and the read-only case:
-**[references/prompt-spec.md](references/prompt-spec.md)**.
+No paraphrase, always last — it is the final instruction read. It tells the sub-agent that the
+planning is done: it executes your steps and reports per step. Details:
+**[references/prompt-spec.md](references/prompt-spec.md#the-footer)**.
 
 ## Non-negotiables
 
 The four marked **(main session)** are replaced, in the polish session only, by the rules
 polish.md gives for it. Every other line here binds both sessions.
 
-- Never dispatch a job whose brief you could not check the result of.
-- **(main session)** Never run more than 2 sub-agents at once, any kind. A plan needing more
-  asks the user first. The polish session runs none.
-- Every sub-agent runs at `effort: high` unless the user says otherwise.
-- **(main session)** Before planning a dispatch, read `.claude/dispatch/polish/INDEX.md` and
-  nothing else from that directory; at most one full note, when the brief touches what its line
-  names.
+- **(main session)** Only you plan. Every brief is numbered direct steps you wrote; a sub-agent
+  never plans, never decides *what* to do and never decides *whether it worked*.
+- Never dispatch a job whose result you could not check.
+- **(main session)** Never run more than 2 sub-agents at once, any kind, without the user's yes.
+- Every sub-agent runs on Opus 5.5 (`claude-opus-5-5`) at `effort: high` unless the user says
+  otherwise.
+- **(main session)** From `.claude/dispatch/polish/`, read only `grep` hits in `.claude/dispatch/polish/INDEX.md`
+  for the briefed paths, and at most one full note when a hit names a file the brief edits.
 - **(main session)** Never polish here and never dispatch polish — it goes to a second session.
-- **(main session)** Never let a sub-agent both decide *what* to do and *whether it worked*.
-  Those are your calls.
-- The security critic **only criticises** — it never edits. Enforced by instruction, checked by
-  you: `git status --porcelain` after it returns must match before.
-- Findings are advisory. Never auto-fix, never auto-commit, never push.
+- The user's own words — request and product text — reach the sub-agent unedited, and the result
+  carries them exactly.
+- The security critic **only criticises** — it never edits. `git status --porcelain` after it
+  returns must match before.
+- Findings are advisory. Never auto-fix; never commit without the user's yes (a standing yes in
+  `AGENTS.md` → Checkpoints counts — integration.md); never push.
 - If you skip acceptance because the change "looks fine", you have not used this skill.
