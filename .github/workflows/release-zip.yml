@@ -1,0 +1,24 @@
+# Attach an uploadable dispatch.zip to every GitHub release.
+# claude.ai's skill upload wants SKILL.md inside one top folder; GitHub's own "Download ZIP"
+# nests it two folders deep, so it cannot be uploaded as is.
+name: release-zip
+on:
+  release:
+    types: [published]
+permissions:
+  contents: write
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate
+        run: bash scripts/validate.sh
+      - name: Build dispatch.zip (top folder dispatch/, SKILL.md inside it)
+        run: |
+          cd skills && zip -r ../dispatch.zip dispatch && cd ..
+          unzip -l dispatch.zip | grep -q ' dispatch/SKILL.md$'
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dispatch.zip --clobber
